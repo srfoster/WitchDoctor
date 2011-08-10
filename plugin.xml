@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <extension
+         point="org.eclipse.ui.popupMenus">
+      <objectContribution
+            adaptable="true"
+            id="MyChangeDetector.contribution1"
+            nameFilter="*"
+            objectClass="org.eclipse.core.resources.IProject">
+         <action
+               class="mychangedetector.builder.ToggleNatureAction"
+               enablesFor="+"
+               id="MyChangeDetector.addRemoveNatureAction"
+               label="Add/Remove Sample Nature"
+               menubarPath="additions">
+         </action>
+      </objectContribution>
+   </extension>
+   
+   
+	
+
+
+
+
+	<extension point="org.eclipse.core.resources.markers"
+		id="highlight_green"
+		name="Highlight Marker Green">
+		<super
+            type="org.eclipse.core.resources.problemmarker">
+      	</super>
+		<persistent value="false"/>
+	</extension>
+	
+	<extension point="org.eclipse.core.resources.markers"
+		id="highlight_red"
+		name="Highlight Marker Red">
+		<super
+            type="org.eclipse.core.resources.problemmarker">
+      	</super>
+		<persistent value="false"/>
+	</extension>
+	
+	<extension point="org.eclipse.core.resources.markers"
+		id="highlight_blue"
+		name="Highlight Marker Blue">
+		<super
+            type="org.eclipse.core.resources.problemmarker">
+      	</super>
+		<persistent value="false"/>
+	</extension>
+	
+	<extension point="org.eclipse.core.resources.markers"
+		id="highlight_purple"
+		name="Highlight Marker Purple">
+		<super
+            type="org.eclipse.core.resources.problemmarker">
+      	</super>
+		<persistent value="false"/>
+	</extension>
+	
+	<extension point="org.eclipse.core.resources.markers"
+		id="highlight_yellow"
+		name="Highlight Marker Yellow">
+		<super
+            type="org.eclipse.core.resources.problemmarker">
+      	</super>
+		<persistent value="false"/>
+	</extension>
+	
+	
+	
+	
+	<extension point="org.eclipse.ui.editors.annotationTypes">
+		<type
+			name="MyChangeDetector.highlight_green_annotation"
+			markerType="MyChangeDetector.highlight_green"/>
+	</extension>
+			
+	<extension point="org.eclipse.ui.editors.annotationTypes">	
+		<type
+			name="MyChangeDetector.highlight_red_annotation"
+			markerType="MyChangeDetector.highlight_red"/>
+	</extension>
+	
+	<extension point="org.eclipse.ui.editors.annotationTypes">	
+		<type
+			name="MyChangeDetector.highlight_blue_annotation"
+			markerType="MyChangeDetector.highlight_blue"/>
+	</extension>
+	
+	<extension point="org.eclipse.ui.editors.annotationTypes">	
+		<type
+			name="MyChangeDetector.highlight_purple_annotation"
+			markerType="MyChangeDetector.highlight_purple"/>
+	</extension>
+	
+	<extension point="org.eclipse.ui.editors.annotationTypes">	
+		<type
+			name="MyChangeDetector.highlight_yellow_annotation"
+			markerType="MyChangeDetector.highlight_yellow"/>
+	</extension>
+
+
+   <extension
+         point="org.eclipse.ui.editors.markerAnnotationSpecification">
+      <specification
+			annotationType="MyChangeDetector.highlight_red_annotation"
+            verticalRulerPreferenceKey="highlight_red.rulers.vertical"
+            textPreferenceKey="highlight_red.text"
+            colorPreferenceKey="highlight_red.color"
+            highlightPreferenceKey="highlight_red.background"
+            textPreferenceValue="false"
+            textStylePreferenceValue="UNDERLINE"
+            overviewRulerPreferenceKey="highlight_red.rulers.overview"
+            presentationLayer="4"
+            highlightPreferenceValue="true"
+            label="Red"
+            icon="icons/occurrence.gif"
+            colorPreferenceValue="255,187,255"
+            verticalRulerPreferenceValue="true"
+            overviewRulerPreferenceValue="true"
+            textStylePreferenceKey="highlight_red.text.style">
+      </specification>
+   </extension>
+   
+   <extension
+         point="org.eclipse.ui.editors.markerAnnotationSpecification">
+      <specification
+			annotationType="MyChangeDetector.highlight_green_annotation"
+            verticalRulerPreferenceKey="highlight_green.rulers.vertical"
+            textPreferenceKey="highlight_green.text"
+            colorPreferenceKey="highlight_green.color"
+            highlightPreferenceKey="highlight_green.background"
+            textPreferenceValue="false"
+            textStylePreferenceValue="UNDERLINE"
+            overviewRulerPreferenceKey="highlight_green.rulers.overview"
+            presentationLayer="4"
+            highlightPreferenceValue="true"
+            label="Green"
+            icon="icons/occurrence.gif"
+            colorPreferenceValue="190,254,235"
+            verticalRulerPreferenceValue="true"
+            overviewRulerPreferenceValue="true"
+            textStylePreferenceKey="highlight_green.text.style">
+      </specification>
+
+   </extension>
+   
+   <extension
+         point="org.eclipse.ui.editors.markerAnnotationSpecification">
+      <specification
+			annotationType="MyChangeDetector.highlight_blue_annotation"
+            verticalRulerPreferenceKey="highlight_blue.rulers.vertical"
+            textPreferenceKey="highlight_blue.text"
+            colorPreferenceKey="highlight_blue.color"
+            highlightPreferenceKey="highlight_blue.background"
+            textPreferenceValue="false"
+            textStylePreferenceValue="UNDERLINE"
+            overviewRulerPreferenceKey="highlight_blue.rulers.overview"
+            presentationLayer="4"
+            highlightPreferenceValue="true"
+            label="Green"
+            icon="icons/occurrence.gif"
+            colorPreferenceValue="192,247,254"
+            verticalRulerPreferenceValue="true"
+            overviewRulerPreferenceValue="true"
+            textStylePreferenceKey="highlight_blue.text.style">
+      </specification>
+
+   </extension>
+   
+   <extension
+         point="org.eclipse.ui.editors.markerAnnotationSpecification">
+      <specification
+			annotationType="MyChangeDetector.highlight_purple_annotation"
+            verticalRulerPreferenceKey="highlight_purple.rulers.vertical"
+            textPreferenceKey="highlight_purple.text"
+            colorPreferenceKey="highlight_purple.color"
+            highlightPreferenceKey="highlight_purple.background"
+            textPreferenceValue="false"
+            textStylePreferenceValue="UNDERLINE"
+            overviewRulerPreferenceKey="highlight_purple.rulers.overview"
+            presentationLayer="4"
+            highlightPreferenceValue="true"
+            label="Green"
+            icon="icons/occurrence.gif"
+            colorPreferenceValue="232,198,255"
+            verticalRulerPreferenceValue="true"
+            overviewRulerPreferenceValue="true"
+            textStylePreferenceKey="highlight_purple.text.style">
+      </specification>
+
+   </extension>
+   
+   <extension
+         point="org.eclipse.ui.editors.markerAnnotationSpecification">
+      <specification
+			annotationType="MyChangeDetector.highlight_yellow_annotation"
+            verticalRulerPreferenceKey="highlight_yellow.rulers.vertical"
+            textPreferenceKey="highlight_yellow.text"
+            colorPreferenceKey="highlight_yellow.color"
+            highlightPreferenceKey="highlight_yellow.background"
+            textPreferenceValue="false"
+            textStylePreferenceValue="UNDERLINE"
+            overviewRulerPreferenceKey="highlight_yellow.rulers.overview"
+            presentationLayer="4"
+            highlightPreferenceValue="true"
+            label="Green"
+            icon="icons/occurrence.gif"
+            colorPreferenceValue="255,255,200"
+            verticalRulerPreferenceValue="true"
+            overviewRulerPreferenceValue="true"
+            textStylePreferenceKey="highlight_yellow.text.style">
+      </specification>
+
+   </extension>
+   <extension
+         id="xmlProblem"
+         name="XML Problem"
+         point="org.eclipse.core.resources.markers">
+      <super
+            type="org.eclipse.core.resources.problemmarker">
+      </super>
+      <persistent
+            value="true">
+      </persistent>
+   </extension>
+   <extension
+         id="sampleBuilder"
+         name="Sample Project Builder"
+         point="org.eclipse.core.resources.builders">
+      <builder
+            hasNature="true">
+         <run
+               class="mychangedetector.builder.SampleBuilder">
+         </run>
+      </builder>
+   </extension>
+   <extension
+         id="sampleNature"
+         name="Sample Project Nature"
+         point="org.eclipse.core.resources.natures">
+      <runtime>
+         <run
+               class="mychangedetector.builder.SampleNature">
+         </run>
+      </runtime>
+      <builder
+            id="MyChangeDetector.sampleBuilder">
+      </builder>
+   </extension>
+   <extension
+         id="xmlProblem"
+         name="XML Problem"
+         point="org.eclipse.core.resources.markers">
+      <super
+            type="org.eclipse.core.resources.problemmarker">
+      </super>
+      <persistent
+            value="true">
+      </persistent>
+   </extension>
+   <extension
+         point="org.eclipse.ui.views">
+      <category
+            id="MyChangeDetector"
+            name="Refactoring Category">
+      </category>
+      <view
+            category="MyChangeDetector"
+            class="mychangedetector.views.RefactoringView"
+            icon="icons/sample.gif"
+            id="mychangedetector.views.RefactoringView"
+            name="RefactoringView">
+      </view>
+   </extension>
+   <extension
+         point="org.eclipse.ui.perspectiveExtensions">
+      <perspectiveExtension
+            targetID="org.eclipse.jdt.ui.JavaPerspective">
+         <view
+               id="mychangedetector.views.RefactoringView"
+               ratio="0.5"
+               relationship="right"
+               relative="org.eclipse.ui.views.TaskList">
+         </view>
+      </perspectiveExtension>
+   </extension>
+   <extension
+         point="org.eclipse.help.contexts">
+      <contexts
+            file="contexts.xml">
+      </contexts>
+   </extension>
+   <extension
+         point="org.eclipse.ui.views">
+   </extension>
+   <extension
+         point="org.eclipse.ui.editors">
+      <editor
+            class="mychangedetector.editors.RefactoringEditor"
+            contributorClass="org.eclipse.ui.texteditor.BasicTextEditorActionContributor"
+            extensions="java"
+            icon="icons/sample.gif"
+            id="mychangedetector.editors.RefactoringEditor"
+            name="Refactoring Editor">
+      </editor>
+   </extension>
+
+
+
+	
+
+
+
+
+
+
+
+</plugin>
