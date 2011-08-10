@@ -21,40 +21,15 @@ import org.eclipse.jdt.core.dom.ASTNode;
    
 /* 
  * Next steps:
- * 
- *        
- *        
- *        That folding problem is becoming more and more annoying.
- *           The quick fix is to make the editor unfold everything, or make folding impossible in the first place.
- *
- *        OMG, it's gray!  Now make the gray range expand when the text expands, by using Positions instead of StyleRanges.
- *
- *  
- * 		  Need to fix the flicker by finding a way to set the styles without fighting the built in syntax highlighting.
- *  
- *            I'm not seeing anything clever that can be done within styledtext -- unless there's a listener we can remove/edit...
- *            Might need to think about making a custom editor plugin, rather than (or in addition to) the view plugin.
- *  
- *  
- *  	  Use Positions in the document to determine the style ranges, rather than static start/end values,
- *  			this will allow the grayed out area to persist through subsequent changes (like a rename following a refactoring).
- *              
- *        The last part of the ghosting puzzle is to give the user a way to confirm or reject the change.   
- *              
- *              
- *        Locking the user out after detection works, but it would be better to cache the user's ineffectual edits and execute them afterward.
- *     
- * 
- *          
- * 
- * 
+ *    
  *     Stabilize stuff
  *
- *        Extract Method is fucked.
- *     
- *     User interface animations/ghosting would be really nice...  Show the resulting changes in gray.  And allow rolling back with tab...
- *     
  *     The multi-step refactorings are not working.  Try extracting a variable in 2 steps.
+ *         One thing to think about which is loosely related to this is the idea of determining how to return to a parsable state.  The user begins deleting something, the tool infers that N delete operations will make everything parse.  It suggests the N deletions to the user.
+ *            This would be a different technique from what we're doing, but it'd make for cool future work.
+ *
+ *     Extract Method is fucked.
+ *        
  *     
  *     Add in new refactorings...
  *     
@@ -71,11 +46,6 @@ import org.eclipse.jdt.core.dom.ASTNode;
  *          
  *          Anonymous class to nested.
  *     
- * Next next steps:
- * 
- *     Cool UIs (Lobo browser?)
- *     
- *     Gamify the refactoring experience.  Points.  Sound effects.  Etc.
  */
 
 
@@ -401,13 +371,26 @@ public class Specification implements Cloneable {
  *            Case 3: Characters typed after refactoring is finished
  *            		(Hopefully, these will be detected as a new refactoring if they are relevant.
  *                   This is indeed the case with extract variable, thankfully.  They are detected as a subsequent rename.)
- *                  
+ *             
+ *            Locking the user out after detection works, but it would be better to cache the user's ineffectual edits and execute them afterward.
  *                  
  *                  
  *         Ghosting!  (A note for the paper:  We give the illusion of proposing a change but have, in reality, already made the change)
  *                (Another note: Since we can't [or don't want to] rely on knowing the exact changes the refactoring made.  We do a diff on the fly to determine what to ghost.)
  *                (The diff on the fly uses what algorithm?  And what tokens?)
+ *                
+ *                
+ *        The last part of the ghosting puzzle is to give the user a way to confirm or reject the change.   
+ *        What constitutes a confirm?  What constitutes a cancel?  What are the "gray" areas?
+ *        Case:  Extracting a variable and then renaming it.
+ *            Should the tool confirm when they begin the rename refactoring? 
+ *            Should it wait until afterward for an explicit acceptance? (No reason why it couldn't).
+ *            The rename action isn't necessarily acceptance or rejection.  So it might be snazzy to keep the proposal gray for as long as possible.  We just need a clear way to accept/reject...
+ *        The solution used here is to be conservative: Most actions are cancellations (arrow key presses, mouse clicks).  The only way to confirm is to press tab.  Actions that will not confirm or reject are alphanumeric key presses.
+ *        		This is motivated by the way that renames (I surmise) will often follow extractions.  So the subsequent alphanumeric presses are likely a rename.  And it looks cool to modify the suggestion rather than auto-accept it.
+ *                 
  *                  
+ *     
  */
 
 

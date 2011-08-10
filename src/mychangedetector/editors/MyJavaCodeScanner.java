@@ -107,7 +107,7 @@ public class MyJavaCodeScanner extends AbstractJavaScanner {
 
 		public boolean isWithinGhostMarkers(char c, MyJavaCodeScanner scanner)
 		{
-			return RefactoringEditor.offsetWithinGray(scanner.getOffset());
+			return RefactoringEditor.refactoringEditor.offsetWithinGray(scanner.getOffset());
 		}
 
 		/*

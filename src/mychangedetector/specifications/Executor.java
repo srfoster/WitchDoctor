@@ -266,7 +266,7 @@ public abstract class Executor implements Cloneable {
         		
         		//Tell the refactoring view to make the text gray
         	
-        		RefactoringEditor.grayRange(start_position,end_position);
+        		RefactoringEditor.refactoringEditor.grayRange(start_position,end_position);
         		
                 System.out.println("Gray?");
         	}

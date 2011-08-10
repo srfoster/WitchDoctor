@@ -1,6 +1,7 @@
 package mychangedetector.editors;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import mychangedetector.builder.SampleBuilder;
@@ -13,16 +14,22 @@ import org.eclipse.core.internal.resources.File;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.internal.ui.JavaPlugin;
 import org.eclipse.jdt.internal.ui.javaeditor.CompilationUnitEditor;
+import org.eclipse.jdt.ui.PreferenceConstants;
 import org.eclipse.jdt.ui.text.IJavaPartitions;
 import org.eclipse.jdt.ui.text.JavaTextTools;
+import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.Position;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.custom.VerifyKeyListener;
 import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.events.KeyListener;
+import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.VerifyEvent;
 import org.eclipse.swt.events.VerifyListener;
 import org.eclipse.swt.widgets.Composite;
@@ -45,15 +52,25 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	public static RefactoringEditor refactoringEditor;
 	
 	// We can do better than static variables.  Come now.
-	private static List<StyleRange> styleRanges;
+
+	private List<Position> grayRanges;
 	
 	public static StyledText styledText;
+	
+	private Integer[] cancellationKeyCodes = {
+		SWT.ESC,
+		SWT.ARROW_DOWN,
+		SWT.ARROW_UP,
+		SWT.ARROW_LEFT,
+		SWT.ARROW_RIGHT
+	};
 	
 	
 	public RefactoringEditor()
 	{
-		styleRanges = new ArrayList<StyleRange>();
+		grayRanges = new ArrayList<Position>();
 		builder = new SampleBuilder();
+		
 
 		refactoringEditor = this;
 	}
@@ -66,11 +83,21 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		setSourceViewerConfiguration(new RefactoringSourceViewerConfiguration(textTools.getColorManager(), store, this, IJavaPartitions.JAVA_PARTITIONING));	
 	}
 	
+
+	
 	public void createPartControl(Composite parent) {
 		super.createPartControl(parent);
 		
-		final IDocument doc = currentDocument();
 		
+		//Code folding makes everything really annoying.  So we'll quick-fix everything by disabling it.
+		if(JavaPlugin.getDefault().getPreferenceStore().getBoolean(PreferenceConstants.EDITOR_FOLDING_ENABLED))
+		{
+			IAction action= getAction("FoldingToggle"); //$NON-NLS-1$
+			action.run();
+		}
+		
+		final IDocument doc = currentDocument();
+				
 		ISourceViewer viewer = getSourceViewer();
 				
         final StyledText text = viewer.getTextWidget();
@@ -111,6 +138,47 @@ public class RefactoringEditor extends CompilationUnitEditor {
         	}
         });
         
+        
+        text.addVerifyKeyListener(new VerifyKeyListener(){
+        	public void verifyKey(VerifyEvent e)
+        	{
+				if (e.keyCode == SWT.TAB && grayRanges.size() > 0)
+				{
+					confirmChanges(); //Get rid of the gray
+
+					e.doit = false;   //Don't do the usual tab-press action.
+				}
+				
+				if (isCancellation(e.keyCode))
+				{
+					rejectChanges(); //Get rid of the gray
+				}
+        	}
+        });
+        
+        
+        text.addMouseListener(new MouseListener(){
+
+			@Override
+			public void mouseDoubleClick(MouseEvent e) {
+				rejectChanges();
+			}
+
+			@Override
+			public void mouseDown(MouseEvent e) {
+				rejectChanges();
+			}
+
+			@Override
+			public void mouseUp(MouseEvent e) {
+				rejectChanges();
+			}
+        	
+        	
+        });
+      
+        
+        
         text.addKeyListener(new KeyListener(){
 
 			@Override
@@ -133,25 +201,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
         	
         });
 
-        /*        
-        new Thread(new Runnable(){
-        	public void run(){
-        		while(true)
-        		{
-	        		try {
-						Thread.sleep(500);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-	        		
-					setGrayRanges();
-        		}
-        	}
-        }).start();
-        */
-        
-        
+
         
 
 		IOperationHistory o = OperationHistoryFactory.getOperationHistory();
@@ -162,10 +212,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 				
 				if(event.getEventType() == OperationHistoryEvent.UNDONE && command_down)
 				{
-					IDocument doc = currentDocument();
-					String text = doc.get();
-					builder.resetCheckpoints(text);
-					styleRanges.clear();
+					reset();
 				}		
 				
 			}
@@ -175,21 +222,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		
 	}
 	
-	private void setGrayRanges()
-	{
-		if(styleRanges.size() > 0)
-		{
-			final Display display = PlatformUI.getWorkbench().getDisplay();
 
-			display.asyncExec(new Runnable(){
-				public void run(){
-		           
-					for(StyleRange range : styleRanges)
-						styledText.setStyleRange(range);
-				}
-			});
-		}
-	}
 
 	
 	private File currentFile()
@@ -281,35 +314,49 @@ public class RefactoringEditor extends CompilationUnitEditor {
 
 	
 	
-	public static void grayRange(int start, int end)
+	public void grayRange(int start, int end)
 	{
-		Display display = PlatformUI.getWorkbench().getDisplay();
+
+		Position position = new Position(start,end-start);
 		
-		StyleRange range = new StyleRange();
-     	range.start = start;
-     	range.length = end - start;
-     	range.fontStyle = SWT.BOLD;
-     	range.foreground = display.getSystemColor(SWT.COLOR_GRAY);
-     	//styleRange.background = display.getSystemColor(SWT.COLOR_RED);
-     	
-		styleRanges.add(range);
+		getGrayRanges().add(position);
+		
+		try {
+			currentDocument().addPosition(position);
+		} catch (BadLocationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		
 	}
 
+	public List<Position> getGrayRanges()
+	{
+		return grayRanges;
+	}
 	
 	public void reset(){
 	
 		IDocument doc = currentDocument();
-
+		
+		for(Position range : grayRanges)
+		{
+			currentDocument().removePosition(range);
+			range.delete();
+		}
+			
+		grayRanges.clear();
+		
 		String text = doc.get();
 		
 		builder.resetCheckpoints(text);
 	
 	}
 
-	public static boolean offsetWithinGray(int offset) {
-		for(StyleRange range : styleRanges)
+	public boolean offsetWithinGray(int offset) {
+		for(Position range : grayRanges)
 		{
-			if(offset >= range.start && offset <= (range.start + range.length))
+			if(range.includes(offset))
 			{
 				return true;
 			}
@@ -318,18 +365,64 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		return false;
 	}
 	
+	public void confirmChanges()
+	{
+		IDocument doc = currentDocument();
+		
+		for(Position range : grayRanges)
+		{
+			currentDocument().removePosition(range);
+			range.delete();
+			
+			try {
+				currentDocument().replace(range.offset,0,"");
+			} catch (BadLocationException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			
+		}
+			
+		grayRanges.clear();
+		String text = doc.get();
+		builder.resetCheckpoints(text);
+	}
+
 	
-	/*
-	public RefactoringEditor() {
-		super();
-		colorManager = new ColorManager();
-		setSourceViewerConfiguration(new RefactoringSourceViewerConfiguration(colorManager));
-		setDocumentProvider(new XMLDocumentProvider());
+	public void rejectChanges()
+	{
+		if(grayRanges.size() == 0)
+			return;
+		
+		IDocument doc = currentDocument();
+		
+		for(Position range : grayRanges)
+		{
+			currentDocument().removePosition(range);
+			range.delete();
+			
+			try {
+				currentDocument().replace(range.offset,range.length,"");
+			} catch (BadLocationException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+		}
+			
+		grayRanges.clear();
+		String text = doc.get();
+		builder.resetCheckpoints(text);
 	}
-	public void dispose() {
-		colorManager.dispose();
-		super.dispose();
+	
+	public boolean isCancellation(int keyCode)
+	{
+		for(Integer i : Arrays.asList(cancellationKeyCodes))
+		{
+			if(keyCode == i)
+				return true;
+		}
+		
+		return false;
 	}
-	*/
 
 }
