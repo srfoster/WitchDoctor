@@ -21,12 +21,36 @@ import org.eclipse.jdt.core.dom.ASTNode;
    
 /* 
  * Next steps:
- *    
- *     Stabilize stuff
  *
- *     The multi-step refactorings are not working.  Try extracting a variable in 2 steps.
- *         One thing to think about which is loosely related to this is the idea of determining how to return to a parsable state.  The user begins deleting something, the tool infers that N delete operations will make everything parse.  It suggests the N deletions to the user.
- *            This would be a different technique from what we're doing, but it'd make for cool future work.
+ *     There's the case where the user deletes each character of an expression separately, passing through many unparsable states.
+ *         We don't necessarily have to handle this.  But we need to see if it would be possible to handle it if we wanted to.
+ *         (One thing to think about which is loosely related to this is the idea of determining how to return to a parsable state.  The user begins deleting something, the tool infers that N delete operations will make everything parse.  It suggests the N deletions to the user.
+ *              This would be a different technique from what we're doing, but it'd make for cool future work.)
+ *
+ *		Let's consider nixing change distiller and look, line by line, at what changed.
+ *			If it can't be parsed, that's okay -- we can use constraints to avoid binding it
+ *				As it stands, if there's a single unparsable line, change distiller will report all sorts of nonsense.
+ *		
+ *       
+ *       
+ *      I've isolated ChangeDistiller into various classes:
+ *      
+ *          ChangeDistillerDifferencer
+ *          ChangeDistillerDiff
+ *          ChangeDistillerDiffEntity
+ *          ChangeDistillerDiffRange
+ *          
+ *      Let's try making a "dumber" differencing package based on the one we're using to gray-out stuff.
+ *          
+ *          It might work a lot better.
+ *          	It'll be faster.
+ *          	It'll handle unparsable lines.
+ *          	It'll match the gray-out differencing package (so there won't be two separate ones)
+ *          	It'll be something worth writing about in the paper:
+ *          		"Dumber diffs appear to be better for real-time refactoring."
+ *
+ *
+ *
  *
  *     Extract Method is fucked.
  *        
@@ -170,6 +194,12 @@ public class Specification implements Cloneable {
 		for(FreeVar var : getBindings())
 		{
 			if(var.name().equals(key) && var.isBound())
+				return var;
+		}
+		
+		for(FreeVar var : getBindings())
+		{
+			if(var.name().equals(key))
 				return var;
 		}
 		
@@ -389,7 +419,77 @@ public class Specification implements Cloneable {
  *        The solution used here is to be conservative: Most actions are cancellations (arrow key presses, mouse clicks).  The only way to confirm is to press tab.  Actions that will not confirm or reject are alphanumeric key presses.
  *        		This is motivated by the way that renames (I surmise) will often follow extractions.  So the subsequent alphanumeric presses are likely a rename.  And it looks cool to modify the suggestion rather than auto-accept it.
  *                 
+ * 
  *                  
+ *                   *     The multi-step are supported because we're basically looking for a simulation relation,
+ *        a series of steps that constitute a refactoring, regardless of what comes in between.
+ *        
+ *     I think the simulation relation theoretical stuff would be good to put into the paper.
+ *     
+ *     Here's an example of a problem that arose when I wasn't doing it quite right.
+ *         
+ *         E.G.
+ *         
+ *            xxxx.methodCall(expression + expression)
+ *            
+ *            to...
+ *            
+ *            xxxx.methodCall(variable)
+ *            
+ *            ... works just fine.
+ *            
+ *            
+ *            But:
+ *            
+ *            xxxx.methodCall(expression + expression)
+ *            
+ *            to...
+ *            
+ *            xxxx.methodCall()
+ *            
+ *            to...
+ *            
+ *            xxxx.methodCall(variable)
+ *            
+ *            Causes the engine to bind after the first change:
+ *            
+ *               old_statement: xxxx.methodCall(expression + expression)
+ *               new_statement: xxxx.methodCall()
+ *           
+ *            And after the second change:
+ *            
+ *               old_statement: xxxx.methodCall()
+ *         		 new_statement: xxxx.methodCall(variable)
+ *         
+ *            Whereas the "correct" bindings should be:
+ *               
+ *               old_statement: xxxx.methodCall(expression + expression)
+ *               new_statement: xxxx.methodCall(variable)
+ *               
+ *            There are various possible fixes.  Off the top of my head:
+ *              1) Constrain {new_statement: xxxx.methodCall()} from being bound.
+ *              	  This will keep new_statement free to bind to {new_statement: xxxx.methodCall(variable)}
+ *              2) Allow {new_statement: xxxx.methodCall()} to bind, but update it when we detect that the user is making changes to a previously bound expression.
+ *              	  This lies outside of the current model, but it's a pretty cool solution -- so it's worth looking into.
+ *              3) Allow specifications to be chained together or merged such that 
+ *                    old_statement: xxxx.methodCall(expression + expression)
+ *                    new_statement: xxxx.methodCall()
+ *           
+ *                    +
+ *            
+ *                    old_statement: xxxx.methodCall()
+ *         		      new_statement: xxxx.methodCall(variable)
+ *         
+ *                    =
+ *                    
+ *                    old_statement: xxxx.methodCall(expression + expression)
+ *         		      new_statement: xxxx.methodCall(variable)
+ *         
+ *                 This would require doing some kind of search-and-combine through the existing in-flight specifications.
+ *                 It's tricky because we drop specifications that don't get executed immediately.
+ *                 		But with some tweaks, this would be possible.
+ *         
+ *        
  *     
  */
 

@@ -8,17 +8,15 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import mychangedetector.builder.SampleBuilder.SampleDeltaVisitor;
-import mychangedetector.builder.SampleBuilder.SampleResourceVisitor;
 import mychangedetector.change_management.ChangeStream;
-import mychangedetector.change_management.ExtendedDistiller;
+import mychangedetector.differencer.Diff;
+import mychangedetector.differencer.Differencer;
+import mychangedetector.differencer.change_distiller.ChangeDistillerDifferencer;
 
-import org.eclipse.core.commands.operations.OperationHistoryEvent;
 import org.eclipse.core.internal.resources.File;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -35,10 +33,6 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.FileEditorInput;
-import org.evolizer.changedistiller.model.entities.SourceCodeChange;
-import org.evolizer.changedistiller.model.entities.SourceCodeEntity;
-import org.evolizer.changedistiller.model.entities.Update;
-import org.evolizer.changedistiller.treedifferencing.ITreeEditOperation;
 
 
 /**
@@ -65,7 +59,6 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 		
 	public static SampleBuilder builder = null;
 	
-	public static boolean reset = false;
 	
 	
 	public SampleBuilder(){
@@ -86,9 +79,7 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 
 	}
 
-	public static void reset(){
-		reset = true;
-	}
+
 	
 	public boolean isPaused()
 	{
@@ -301,14 +292,8 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 				e2.printStackTrace();
 			}
 	        
-	        	
-	        ExtendedDistiller fDJob = new ExtendedDistiller();
-	        fDJob.performDistilling(left, right);
-	        
-	       
-	        List<SourceCodeChange> list = fDJob.getSourceCodeChanges();
-	        List<ITreeEditOperation> script = fDJob.getEditScript();
-	        
+			Differencer diff = new ChangeDistillerDifferencer();
+			List<Diff> list = diff.perform(left,right);
 
 	        if(list != null)
 	        {
@@ -322,28 +307,7 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 				} catch (CoreException e1) {
 					e1.printStackTrace();
 				}
-	        	
-		        if(reset)
-		        {
-		        	stream.clear();
-		        	
-			        try {
-						left.delete(true,false,null);
-				        left.create(right.getContents(), true, null);
-					} catch (CoreException e) {
-						e.printStackTrace();
-					}
-					
-			        try {
-						original_left.delete(true,false,null);
-				        original_left.create(right.getContents(), true, null);
-					} catch (CoreException e) {
-						e.printStackTrace();
-					}
-					
-		        	reset = false;
-		        }
-	        	
+	     
 
 
 		        try {
@@ -353,7 +317,7 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 					e.printStackTrace();
 				}
 				
-		        stream.addSet(list, new FileVersion(left.getName(), left_contents), new FileVersion(right.getName(), right_contents), script);
+		        stream.addSet(list, new FileVersion(left.getName(), left_contents), new FileVersion(right.getName(), right_contents));
 		        stream.print();
 				
 	        } else {

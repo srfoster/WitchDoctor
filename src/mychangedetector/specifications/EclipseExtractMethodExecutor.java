@@ -152,7 +152,7 @@ public class EclipseExtractMethodExecutor extends Executor {
 								e.printStackTrace();
 							}
 							
-							SampleBuilder.reset();
+							//SampleBuilder.reset();
 							SampleBuilder.unpause();
 						}
 						

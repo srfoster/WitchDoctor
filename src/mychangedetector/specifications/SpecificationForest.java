@@ -42,9 +42,11 @@ public class SpecificationForest {
 			
 			if(!clone.equals(spec))
 			{
-				toAdd.add(clone);
 				executed = clone.tryExecute();
 			}
+			
+			toAdd.add(clone);
+
 		}
 		
 		if(executed)

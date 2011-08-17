@@ -15,8 +15,10 @@ import java.util.List;
 import java.util.Set;
 
 import mychangedetector.ast_helpers.MyASTVisitor;
-import mychangedetector.ast_helpers.ZippingASTVisitor;
 import mychangedetector.builder.FileVersion;
+import mychangedetector.differencer.Diff;
+import mychangedetector.differencer.DiffEntity;
+import mychangedetector.differencer.DiffRange;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
@@ -24,23 +26,15 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.NodeFinder;
-import org.evolizer.changedistiller.model.classifiers.SourceRange;
-import org.evolizer.changedistiller.model.entities.Delete;
-import org.evolizer.changedistiller.model.entities.Insert;
-import org.evolizer.changedistiller.model.entities.SourceCodeChange;
-import org.evolizer.changedistiller.model.entities.SourceCodeEntity;
-import org.evolizer.changedistiller.model.entities.Update;
-import org.evolizer.changedistiller.treedifferencing.ITreeEditOperation;
-import org.evolizer.changedistiller.treedifferencing.Node;
+
 
 public class ChangeSet implements Set {
 	
-	List<SourceCodeChange> list = new ArrayList<SourceCodeChange>();
+	List<Diff> list = new ArrayList<Diff>();
 
 	FileVersion before;
 	FileVersion after;
 	
-	List<ITreeEditOperation> edit_script;
 	
 	public void setBeforeFile(FileVersion before)
 	{
@@ -51,12 +45,7 @@ public class ChangeSet implements Set {
 	{
 		this.after = after;
 	}
-	
-	public void setEditScript(List<ITreeEditOperation> edits)
-	{
-		this.edit_script = edits;
-	}
-	
+
 	public List<ChangeWrapper> getChanges()
 	{
 	 	ArrayList<ChangeWrapper> wrappers = new ArrayList<ChangeWrapper>();
@@ -232,15 +221,15 @@ public class ChangeSet implements Set {
 		}
 		**/
 		
-		for(SourceCodeChange change : list){
+		for(Diff change : list){
 			ChangeWrapper wrapper = new ChangeWrapper(change,full_tree_before, full_tree_after);
 			
 			ASTNode main_node = getASTNode(change);
 			wrapper.addASTNode(main_node);
 			
-			if(change instanceof Update)
+			if(change.isUpdate())
 			{
-				ASTNode updated = getUpdatedASTNode((Update)change);
+				ASTNode updated = getUpdatedASTNode(change);
 				wrapper.addASTNode(updated);
 			}
 			
@@ -251,17 +240,11 @@ public class ChangeSet implements Set {
 		return wrappers;
 	}
 
-	private ASTNode getASTFromNodeAndTree(Node node, ASTNode tree)
-	{
-		SourceCodeEntity entity = node.getEntity();
 
-		return getASTFromEntityAndTree(entity,tree);
-	}
-	
-	private ASTNode getASTFromEntityAndTree(SourceCodeEntity entity, ASTNode tree)
+	private ASTNode getASTFromEntityAndTree(DiffEntity entity, ASTNode tree)
 	{
 		
-		SourceRange range = entity.getSourceRange();
+		DiffRange range = entity.getSourceRange();
 		int offset = range.getOffset();
 		int length = range.getLength();
 		final int start = offset; 
@@ -273,16 +256,16 @@ public class ChangeSet implements Set {
 	}
 
 	
-	public ASTNode getSourceNode(SourceCodeChange change)
+	public ASTNode getSourceNode(Diff change)
 	{
-		SourceCodeEntity entity = null;
-		if(change instanceof Update)
+		DiffEntity entity = null;
+		if(change.isUpdate())
 			entity = change.getChangedEntity();
 		else
 			entity = change.getParentEntity();
-		String file = before.getContents();;
+		String file = before.getContents();
 		
-		SourceRange range = entity.getSourceRange();
+		DiffRange range = entity.getSourceRange();
 		int offset = range.getOffset();
 		int length = range.getLength();
 		int start = offset; 
@@ -300,12 +283,12 @@ public class ChangeSet implements Set {
         return visitor.getTopLevelNode();
 	}
 	
-	public ASTNode getUpdatedASTNode(Update change)
+	public ASTNode getUpdatedASTNode(Diff change)
 	{
-		SourceCodeEntity entity = change.getChangedEntity();
+		DiffEntity entity = change.getChangedEntity();
 		String file = after.getContents();
 		
-		SourceRange range = entity.getSourceRange();
+		DiffRange range = entity.getSourceRange();
 		int offset = range.getOffset();
 		int length = range.getLength();
 		int start = offset; 
@@ -325,24 +308,24 @@ public class ChangeSet implements Set {
 	
 	//Wowzers.  TODO: Lots of duplicated code between getASTNode() and print().  Clean up.
 	
-	public ASTNode getASTNode(SourceCodeChange change)
+	public ASTNode getASTNode(Diff change)
 	{
-		SourceCodeEntity entity = null;
+		DiffEntity entity = null;
     	
-    	if(change instanceof Update)
-    		entity = ((Update)change).getNewEntity();
+    	if(change.isUpdate())
+    		entity = change.getNewEntity();
     	else
     		entity = change.getChangedEntity();
     	
     	String file = null;
-    	if(change instanceof Insert)
+    	if(change.isInsert())
     	{
     		file = after.getContents();
     	} else {
     		file = before.getContents();
     	}
 		
-		SourceRange range = entity.getSourceRange();
+		DiffRange range = entity.getSourceRange();
 		int offset = range.getOffset();
 		int length = range.getLength();
 		int start = offset; 
@@ -360,7 +343,7 @@ public class ChangeSet implements Set {
         return visitor.getTopLevelNode();
 	}
 	
-	public ASTNode getNodeFromRange(SourceRange range, ASTNode root)
+	public ASTNode getNodeFromRange(DiffRange range, ASTNode root)
 	{
 		int offset = range.getOffset();
 		int length = range.getLength();
@@ -377,28 +360,28 @@ public class ChangeSet implements Set {
 	public void print()
 	{
 		
-		for(SourceCodeChange change : list)
+		for(Diff change : list)
 		{
-			String change_type = change.getChangeType().toString();
+			String change_type = change.getChangeType();
         	
         	if(change != null)
         	{
-	        	SourceCodeEntity entity = null;
+	        	DiffEntity entity = null;
 	        	
-	        	if(change instanceof Update)
-	        		entity = ((Update)change).getNewEntity();
+	        	if(change.isUpdate())
+	        		entity = change.getNewEntity();
 	        	else
 	        		entity = change.getChangedEntity();
 	        	
 	        	String file = null;
-	        	if(change instanceof Delete)
+	        	if(change.isDelete())
 	        	{
 	        		file = before.getContents();
 	        	} else {
 	        		file = after.getContents();
 	        	}
         		
-        		SourceRange range = entity.getSourceRange();
+        		DiffRange range = entity.getSourceRange();
         		int offset = range.getOffset();
         		int length = range.getLength();
         		int start = offset; 

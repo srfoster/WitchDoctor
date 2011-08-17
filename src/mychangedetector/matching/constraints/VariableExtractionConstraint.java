@@ -34,25 +34,39 @@ public class VariableExtractionConstraint extends Constraint {
 		if(!key.equals(first_key) && !key.equals(second_key))
 			return false;
 		
+		//Adjust directionality of violation check based on which key we are checking.
+		String first_key_temp = first_key;
+		String second_key_temp = second_key;
+		
+		/*
+		if(key.equals(second_key))
+		{
+			first_key_temp = second_key;
+			second_key_temp = first_key;
+		}
+		*/
 		
 		ASTNode first_node, second_node;
 		
-		if(key.equals(first_key))
-		{
-			first_node  = matched_bindings.get(first_key);
-			FreeVar second_free_var = requirement.getSpecification().getProperty(second_key);
-			if(second_free_var == null || second_free_var.isNotBound())
-				return false;
+		//See if we've already bound it.
+		FreeVar first_free_var = requirement.getSpecification().getProperty(first_key_temp);
+		first_node = first_free_var.binding();
 			
-			second_node = second_free_var.binding();
-		} else {
-			second_node  = matched_bindings.get(second_key);
-			FreeVar first_free_var = requirement.getSpecification().getProperty(first_key);
-			if(first_free_var == null || first_free_var.isNotBound())
-				return false;
+		//See if we just bound it.
+		if(first_node == null)
+			first_node  = matched_bindings.get(first_key_temp);
 			
-			first_node = first_free_var.binding();
-		}
+		//See if we've already bound it.
+		FreeVar second_free_var = requirement.getSpecification().getProperty(second_key_temp);
+		second_node = second_free_var.binding();
+		
+		//See if we just bound it.
+		if(second_node == null)
+			second_node = matched_bindings.get(second_key_temp);
+		
+		
+		if(first_node == null || second_node == null)
+			return false;;
 		
 		return !isExtractedVar(first_node,second_node, requirement, change);
 	}

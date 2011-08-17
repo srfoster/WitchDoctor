@@ -105,6 +105,10 @@ public class MyASTMatcher extends ASTMatcher {
 		listeners.put(name, listener);
 	}
 	
+	public void removeListener(String name)
+	{
+		listeners.remove(name);
+	}
 	
 	public ASTNode getProperty(String s)
 	{

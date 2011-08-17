@@ -271,10 +271,6 @@ public abstract class Executor implements Cloneable {
                 System.out.println("Gray?");
         	}
         }
-        
-
-		
-
 	}
 	
 	public void resetCheckpointsAfterNextAction(final IDocument doc,

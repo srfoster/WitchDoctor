@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import mychangedetector.builder.FileVersion;
+import mychangedetector.differencer.Diff;
 import mychangedetector.specifications.Specification;
 import mychangedetector.specifications.SpecificationForest;
 
 import org.evolizer.changedistiller.model.entities.SourceCodeChange;
-import org.evolizer.changedistiller.treedifferencing.ITreeEditOperation;
 
 public class ChangeStream {
 	
@@ -50,14 +50,13 @@ public class ChangeStream {
 		return ret.toArray();
 	}
 	
-	public void addSet(List<SourceCodeChange> new_changes, FileVersion before, FileVersion after, List<ITreeEditOperation> script ){
+	public void addSet(List<Diff> new_changes, FileVersion before, FileVersion after){
 		if(new_changes.size() == 0) return;
 		
 		ChangeSet new_set = new ChangeSet();
 		new_set.setBeforeFile(before);
 		new_set.setAfterFile(after);
 		new_set.addAll(new_changes);
-		new_set.setEditScript(script);
 		list.add(new_set);
 	
 		//rename_detector.addChanges(new_set);

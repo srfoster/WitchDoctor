@@ -53,10 +53,13 @@ public abstract class Requirement implements Cloneable {
 	public void setProperty(String key, ASTNode current, ChangeWrapper change) {
 		for(FreeVar var : bindings)
 		{
-			if(var.isNotBound() && var.nameIs(key))
+			if(var.nameIs(key))
 			{
-				var.bind(current);
-				var.setContext(change);
+				if(var.isNotBound())
+				{
+					var.bind(current);
+					var.setContext(change);
+				}
 				return;
 			}
 		}
@@ -80,9 +83,23 @@ public abstract class Requirement implements Cloneable {
 	public void match(ChangeWrapper change, List<Constraint> external_constraints) {
 		
 		//Find any bindings in this change item
-		Map<String,ASTNode> matched_bindings = buildChangeMatcher().match(change);
+		ChangeMatcher matcher = buildChangeMatcher();
+		matcher.match(change);
+		Map<String,ASTNode> matched_before_bindings = matcher.getBeforeBindings();
+		Map<String,ASTNode> matched_after_bindings = matcher.getAfterBindings();
+
+		boolean match_successful = constrain(matched_before_bindings, external_constraints, change);
+		match_successful         = constrain(matched_after_bindings, external_constraints, change) || match_successful;
 		
+		if(match_successful){
+			afterMatch(change);
+		}
+	}
+	
+	private boolean constrain(Map<String,ASTNode> matched_bindings, List<Constraint> external_constraints, ChangeWrapper change)
+	{
 		boolean match_successful = false;
+
 		
 		//Throw away any bindings that violate the constraints.  Save the rest.
 		for(String key : matched_bindings.keySet())
@@ -107,13 +124,8 @@ public abstract class Requirement implements Cloneable {
 				match_successful = true;
 			}
 		}
-		
 
-		
-		if(match_successful)
-		{
-			afterMatch(change);
-		}
+		return match_successful;
 	}
 	
 	protected List<Constraint> localConstraints(){

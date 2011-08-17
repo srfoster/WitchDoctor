@@ -3,22 +3,19 @@ package mychangedetector.change_management;
 import java.util.ArrayList;
 import java.util.List;
 
+import mychangedetector.differencer.Diff;
+
 import org.eclipse.jdt.core.dom.ASTNode;
-import org.evolizer.changedistiller.model.entities.Delete;
-import org.evolizer.changedistiller.model.entities.Insert;
-import org.evolizer.changedistiller.model.entities.Move;
-import org.evolizer.changedistiller.model.entities.SourceCodeChange;
-import org.evolizer.changedistiller.model.entities.Update;
 
 public class ChangeWrapper {
-	SourceCodeChange change;
+	Diff change;
 	List<ASTNode> relevant_nodes;
 	
 	ASTNode full_tree_before = null;
 	ASTNode full_tree_after  = null;
 	
 	
-	public ChangeWrapper(SourceCodeChange change, ASTNode full_tree_before, ASTNode full_tree_after){
+	public ChangeWrapper(Diff change, ASTNode full_tree_before, ASTNode full_tree_after){
 		this.change = change;
 		this.full_tree_before = full_tree_before;
 		this.full_tree_after  = full_tree_after;
@@ -32,16 +29,16 @@ public class ChangeWrapper {
 	
 	public String getChangeType()
 	{
-		if(change instanceof Update)
+		if(change.isUpdate())
 			return "UPDATE";
 			
-		if(change instanceof Insert)
+		if(change.isInsert())
 			return "INSERT";
 			
-		if(change instanceof Delete)
+		if(change.isDelete())
 			return "DELETE";
 		
-		if(change instanceof Move)
+		if(change.isMove())
 			return "MOVE";
 		
 		return null;
@@ -53,7 +50,7 @@ public class ChangeWrapper {
 	}
 	
 	public ASTNode getUpdatedNode(){
-		if(!(change instanceof Update))
+		if(!(change.isUpdate()))
 		{
 			return null;
 		}
