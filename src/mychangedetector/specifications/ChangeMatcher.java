@@ -110,7 +110,8 @@ public class ChangeMatcher implements Cloneable {
 	
 	public Map<String,ASTNode> match(ChangeWrapper change)
 	{
-		if(!change.getChangeType().equals(change_type))
+		String the_type = change.getChangeType();
+		if(!the_type.equals(change_type))
 			return new HashMap<String,ASTNode>();
 		
 		if(change.getChangeType().equals("UPDATE"))
@@ -150,32 +151,64 @@ public class ChangeMatcher implements Cloneable {
 		ASTNode before = change.getNode();
 		ASTNode after  = change.getUpdatedNode();
 		
-		ZippingASTVisitor zipper = new ZippingASTVisitor(before);
-		after.accept(zipper);
-		
-		zipper.reverse();
-		for(Object pair_obj : zipper)
+		//When nodes are unparsable, they'll be null here.
+		if(after == null && before == null)
 		{
-			 List<ASTNode> pair = (List<ASTNode>) pair_obj;
-			 
-			 ASTNode first = pair.get(0);
-			 ASTNode second = pair.get(1);
-			 
-			 if(first.subtreeMatch(new ASTMatcher(), second))
-				 continue;
-			 
-			 matching_before = true;
-				
-			 if(first != null)
-				 first.accept(new MatchingASTVisitor(matcher, before_node_matcher));
-			 
-			 matching_before = false;
-			 
-			 if(second != null)
-				 second.accept(new MatchingASTVisitor(matcher, after_node_matcher));
+			return new HashMap<String,ASTNode>();
 		}
 		
-		return matcher.getProperties();
+		if(after != null && before != null)
+		{
+			
+			ZippingASTVisitor zipper = new ZippingASTVisitor(before);
+			after.accept(zipper);
+			
+			zipper.reverse();
+			for(Object pair_obj : zipper)
+			{
+				 List<ASTNode> pair = (List<ASTNode>) pair_obj;
+				 
+				 ASTNode first = pair.get(0);
+				 ASTNode second = pair.get(1);
+				 
+				 if(first.subtreeMatch(new ASTMatcher(), second))
+					 continue;
+				 
+				 matching_before = true;
+					
+				 if(first != null)
+					 first.accept(new MatchingASTVisitor(matcher, before_node_matcher));
+				 
+				 matching_before = false;
+				 
+				 if(second != null)
+					 second.accept(new MatchingASTVisitor(matcher, after_node_matcher));
+			}
+			
+			return matcher.getProperties();
+		}
+		
+		
+		if(before != null)
+		{
+			matching_before = true;
+			
+			before.accept(new MatchingASTVisitor(matcher,before_node_matcher));
+			return matcher.getProperties();
+
+		}
+		
+		if(after != null){
+			matching_before = false;
+			
+			after.accept(new MatchingASTVisitor(matcher,after_node_matcher));;
+			return matcher.getProperties();
+			
+
+		}
+		
+		return null;
+
 	}
 	
 

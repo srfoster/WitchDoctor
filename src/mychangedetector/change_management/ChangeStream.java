@@ -14,8 +14,6 @@ public class ChangeStream {
 	
 	List<ChangeSet> list = new ArrayList<ChangeSet>();
 	
-
-	
 	
 	Specification rename_detector = Specification.newRenameSpecification();
 	Specification extract_detector = Specification.newExtractMethodSpecification();
@@ -26,7 +24,7 @@ public class ChangeStream {
 	public ChangeStream()
 	{
 		spec_forest.addSpecification(rename_detector);
-	//	spec_forest.addSpecification(extract_detector);
+		spec_forest.addSpecification(extract_detector);
 		spec_forest.addSpecification(extract_variable_detector);
 	}
 	

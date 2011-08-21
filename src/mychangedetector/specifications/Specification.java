@@ -3,17 +3,15 @@ package mychangedetector.specifications;
 import java.util.ArrayList;
 import java.util.List;
 
-import mychangedetector.ast_helpers.ASTNodeDescriptor;
 import mychangedetector.change_management.ChangeWrapper;
-import mychangedetector.matching.constraints.MethodMotionConstraint;
+import mychangedetector.matching.constraints.MethodExtractionConstraint;
 import mychangedetector.matching.constraints.NotEqualConstraint;
 import mychangedetector.matching.constraints.VariableExtractionConstraint;
 import mychangedetector.matching.constraints.VariableRenamedConstraint;
-import mychangedetector.specification.requirements.CodeBlock;
 import mychangedetector.specification.requirements.MethCall;
-import mychangedetector.specification.requirements.MethodDef;
 import mychangedetector.specification.requirements.NameChange;
 import mychangedetector.specification.requirements.Statement;
+import mychangedetector.specification.requirements.UpdateMethod;
 import mychangedetector.specification.requirements.UpdateStatement;
 
 import org.eclipse.jdt.core.dom.ASTNode;
@@ -21,41 +19,33 @@ import org.eclipse.jdt.core.dom.ASTNode;
    
 /* 
  * Next steps:
+ *     
+ *     
+ *     Holy fuck, Extract Method is working!  
  *
- *     There's the case where the user deletes each character of an expression separately, passing through many unparsable states.
- *         We don't necessarily have to handle this.  But we need to see if it would be possible to handle it if we wanted to.
- *         (One thing to think about which is loosely related to this is the idea of determining how to return to a parsable state.  The user begins deleting something, the tool infers that N delete operations will make everything parse.  It suggests the N deletions to the user.
- *              This would be a different technique from what we're doing, but it'd make for cool future work.)
+ *	   Extract expression is working well too.
+ *			The current problem crops up when you try to do two ExtractExpression refactorings at once.
+ *			Part of the problem is the rollback.
+ *				This might be a good opportunity to explore doing something more intelligent (local) with the roll back -- i.e. don't roll back the entire document, just the place where the change is happening.
+ *				Then again, this may not work with complex refactorings like Extract Method.
  *
- *		Let's consider nixing change distiller and look, line by line, at what changed.
- *			If it can't be parsed, that's okay -- we can use constraints to avoid binding it
- *				As it stands, if there's a single unparsable line, change distiller will report all sorts of nonsense.
- *		
- *       
- *       
- *      I've isolated ChangeDistiller into various classes:
- *      
- *          ChangeDistillerDifferencer
- *          ChangeDistillerDiff
- *          ChangeDistillerDiffEntity
- *          ChangeDistillerDiffRange
- *          
- *      Let's try making a "dumber" differencing package based on the one we're using to gray-out stuff.
- *          
- *          It might work a lot better.
- *          	It'll be faster.
- *          	It'll handle unparsable lines.
- *          	It'll match the gray-out differencing package (so there won't be two separate ones)
- *          	It'll be something worth writing about in the paper:
- *          		"Dumber diffs appear to be better for real-time refactoring."
+ *			The easy fix is to just disallow simultaneous refactorings...
+ *				We reenabled it to deal with non-parsable states.
+ *				But we can safely drop in-flight refactorings whenever a new one takes flight.
  *
  *
  *
  *
- *     Extract Method is fucked.
  *        
  *     
  *     Add in new refactorings...
+ *     
+ *     		Adding unimplemented methods and try/catch blocks would be ridiculously useful.  I know they're not "refactorings", but I think they should be the first things we add.
+ *     			The try/catch would be a good example of a refactoring where you'd cycle through multiple options: You might want the try/catch block to surround the current statement, or its parent block, and so on.  Or you might want to add a throws declaration.		
+ *     
+ *     		Change method signature would be cool -- especially if it uses linked mode and could be done in real-time like Rename.  Should investigate whether it works like that.
+ *     			Then you could trigger the Change Signature right after you do the Extract Method -- analogous to how Rename executes after Extract Variable
+ *     
  *     
  *     		Make extract var work in reverse.  Detect when a variable is introduced and defined in a way that matches an expression nearby.
  *     			(Should just be a challenge related to research -- not to Eclipse crap.  We can use the same executor.  Yay.)
@@ -70,6 +60,9 @@ import org.eclipse.jdt.core.dom.ASTNode;
  *          
  *          Anonymous class to nested.
  *     
+ *     
+ *     What are some good ways to demo this tool?  Are there any canonical programs that we can write and show that the process is easier with the tool?
+ *     Is there some way to examine a program and determine whether it would have benefitted from having been written with the help of the tool? (That's crazy, I know.  But it's worth writing down all ideas -- even the "out there" ones.)
  */
 
 
@@ -324,41 +317,27 @@ public class Specification implements Cloneable {
 	public static Specification newExtractMethodSpecification()
 	{
 		Specification extract = new Specification("Extract Method");
-		
-		MethodDef addMeth  = new MethodDef("INSERT", "method_declaration", "method_name");
-		CodeBlock remBlock = new CodeBlock("DELETE", "removed_statement_");
-		CodeBlock addBlock = new CodeBlock("INSERT", "added_statement_");
-		MethCall  addCall  = new MethCall("INSERT",  "call_name");
-		
-		extract.addRequirement(remBlock);
-		extract.addRequirement(addMeth);
-		extract.addRequirement(addBlock);  
-		extract.addRequirement(addCall);
 
-		//Ensure that the added block wasn't to the same method as the removed block, which would be a deal breaker.
-		extract.addConstraint(
-				new MethodMotionConstraint(
-						remBlock.getMethodDeclarationVar().name(),
-						remBlock.getPrefix(),
-						addBlock.getMethodDeclarationVar().name(),
-						addBlock.getPrefix()
-				)
-		);
-		
-		//Constraint needed because adding a method call gets recorded as adding a one-line code block.
-		//This might not be the best way to fix it -- because a legitimate code block could, in theory, have a method call on its first line.
-		//    I guess this should be combined with some kind of length constraint: if code block is only one statement, the first statement's type should not be a method invocation.
-		//    I'll wait on that, though.
-		
-		ASTNodeDescriptor descriptor = (new ASTNodeDescriptor("ExpressionStatement")).withChild("MethodInvocation");
-		
-		
-		extract.addConstraint(
-				new IsTypeConstraint("NOT", "added_statement_1", descriptor)
-		);
+		//Not well named.  This looks for a deleted statement, then binds the parent method declaration.
+		UpdateMethod updated_method = new UpdateMethod("old_method","new_method");
 
-	//	extract.addConstraint(new ChildOfMethodConstraint("added_statement_\\d+", addMeth.getMethodDeclarationVar().name()));
-	//	extract.addConstraint(new ChildOfMethodConstraint("call_name", remBlock.getMethodDeclarationVar().name()));
+		
+		//Now we want to detect the introduction of a method call.  What ever was deleted in between must be the extracted lines.
+		MethCall change_to_method_call = new MethCall("UPDATE","method_call");
+		
+		//Now we want to detect the introduction of a method call.  What ever was deleted in between must be the extracted lines.
+		MethCall insert_new_method_call = new MethCall("INSERT","method_call");
+		
+		extract.addRequirement(updated_method);
+		extract.addRequirement(insert_new_method_call);
+		extract.addRequirement(change_to_method_call);
+
+		
+		
+		//We also need a constraint that will verify that the new method call replaces some contiguous sequence of code lines.
+		//   This can also check to see that there haven't been any other changes to the method -- i.e. not related to the extraction.
+		extract.addConstraint(new MethodExtractionConstraint("method_call","hook_statement"));  //Bonus points if this works in both directions.
+		
 	
 		extract.addExecutor(new EclipseExtractMethodExecutor(new ExtractMethodSpecificationAdapter(extract)));
 		
@@ -490,7 +469,28 @@ public class Specification implements Cloneable {
  *                 		But with some tweaks, this would be possible.
  *         
  *        
+ *        
+ *          Tried making a "dumber" differencing package based on the one we're using to gray-out stuff.
+ *          
+ *          Thought it might work better.
+ *          	faster.
+ *          	able to handle unparsable lines.
+ *          	matches the gray-out differencing package (so there won't be two separate ones)
+ *          	
+ *          
+ *          Turns out I was right: Dumber diffs appear to be better for real-time refactoring.
+ *          	(I'm just splitting on semi-colons to detect change areas.  Only extracting type information later.
+ * 
  *     
+ *     
+ *     The way that the Extract Method specification has been simplified is pretty interesting.  I think it's worth arguing for a certain kind of minimalist aesthetics in these specs.
+ *     The old way was certainly a big mess.  This might be worth writing about.
+ *     		Before:
+ * 				We were trying to bind every piece of necessary information when it "arrived" -- i.e. each deleted statement that the user removed.
+ * 				This turned out to be difficult because there wasn't a good way to match nodes in ASTs between edits.  Plus it wouldn't have been efficient anyway.
+ * 			After:
+ * 				We try to match the first and last requirement (removing one statement, adding a method call).
+ * 				The tool is able to infer the rest of the information (i.e. the other removed statements).
  */
 
 

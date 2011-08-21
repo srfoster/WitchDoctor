@@ -15,7 +15,7 @@ import java.util.Map;
 import mychangedetector.change_management.ChangeStream;
 import mychangedetector.differencer.Diff;
 import mychangedetector.differencer.Differencer;
-import mychangedetector.differencer.change_distiller.ChangeDistillerDifferencer;
+import mychangedetector.differencer.simple_differencer.SimpleDifferencer;
 
 import org.eclipse.core.internal.resources.File;
 import org.eclipse.core.resources.IFile;
@@ -292,7 +292,7 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 				e2.printStackTrace();
 			}
 	        
-			Differencer diff = new ChangeDistillerDifferencer();
+			Differencer diff = new SimpleDifferencer();
 			List<Diff> list = diff.perform(left,right);
 
 	        if(list != null)

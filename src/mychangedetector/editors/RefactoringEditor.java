@@ -142,7 +142,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
         text.addVerifyKeyListener(new VerifyKeyListener(){
         	public void verifyKey(VerifyEvent e)
         	{
-				if (e.keyCode == SWT.TAB && grayRanges.size() > 0)
+				if ((e.keyCode == SWT.TAB || e.keyCode == SWT.CR) && grayRanges.size() > 0)
 				{
 					confirmChanges(); //Get rid of the gray
 
@@ -321,13 +321,27 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		
 		getGrayRanges().add(position);
 		
+		
 		try {
 			currentDocument().addPosition(position);
+			
+			IDocument doc = currentDocument();
+			
+			damageDocument(start,end);
 		} catch (BadLocationException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} 
 		
+		//Mostly for debugging
+		/*
+		IDocument doc = currentDocument();
+		try {
+			String grayed_text = doc.get(start, end - start);
+			System.out.println();
+		} catch (BadLocationException e) {
+			e.printStackTrace();
+		}
+		*/
 	}
 
 	public List<Position> getGrayRanges()
@@ -374,12 +388,9 @@ public class RefactoringEditor extends CompilationUnitEditor {
 			currentDocument().removePosition(range);
 			range.delete();
 			
-			try {
-				currentDocument().replace(range.offset,0,"");
-			} catch (BadLocationException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
+			damageDocument(range.offset, range.offset + range.length);
+
+
 			
 		}
 			
@@ -402,11 +413,12 @@ public class RefactoringEditor extends CompilationUnitEditor {
 			range.delete();
 			
 			try {
-				currentDocument().replace(range.offset,range.length,"");
-			} catch (BadLocationException e1) {
+				doc.replace(range.offset,range.length - 1,"");
+			} catch (BadLocationException e) {
 				// TODO Auto-generated catch block
-				e1.printStackTrace();
+				e.printStackTrace();
 			}
+			
 		}
 			
 		grayRanges.clear();
@@ -423,6 +435,30 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		}
 		
 		return false;
+	}
+	
+	private void damageDocument(int start, int end)
+	{
+		IDocument doc = currentDocument();
+		
+		try {
+			//Manually damage each line, thus triggering the color update. 
+			for(int i = start; i < end; i++)
+			{
+				String character;
+	
+				character = doc.get(i, 1);
+				
+			
+				if(character.equals("\n"))
+				{
+					doc.replace(i,0,""); 
+				}
+			}
+		} catch (BadLocationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 }

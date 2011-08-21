@@ -73,7 +73,7 @@ public class ExtractMethodSpecificationAdapter extends SpecificationAdapter {
 				{
 					public FreeVar execute(SpecificationAdapter spec)
 					{
-						FreeVar call_var = spec.getProperty("call_name");
+						FreeVar call_var = spec.getProperty("method_call");
 						
 						if(call_var == null || call_var.isNotBound())
 							return null;

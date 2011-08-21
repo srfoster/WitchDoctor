@@ -68,10 +68,5 @@ public class ChangeDistillerDiff implements Diff {
 	{
 		return new ChangeDistillerDiffEntity(((Update)change).getNewEntity());
 	}
-	
-	@Override
-	public DiffEntity getParentEntity()
-	{
-		return new ChangeDistillerDiffEntity(change.getParentEntity());
-	}
+
 }

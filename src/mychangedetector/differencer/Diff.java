@@ -16,6 +16,5 @@ public interface Diff {
 
 	public DiffEntity getNewEntity();
 
-	public DiffEntity getParentEntity();
 
 }

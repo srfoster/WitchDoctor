@@ -50,12 +50,6 @@ public class CodeBlock extends Requirement {
 
 	private ASTNodeDescriptor buildBeforeNodeMatcher()
 	{
-		/*
-		ASTNodeBuilder builder = new ASTNodeBuilder();
-			
-		builder.statement(currentStatmentName());
-		*/
-		
 		ASTNodeDescriptor descriptor = new ASTNodeDescriptor();
 		descriptor.setClassName("org.eclipse.jdt.core.dom.Statement");
 		descriptor.setBindingName(currentStatmentName());

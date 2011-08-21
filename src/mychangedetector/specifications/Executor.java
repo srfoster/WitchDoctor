@@ -16,7 +16,6 @@ import java.util.regex.Pattern;
 import mychangedetector.builder.SampleBuilder;
 import mychangedetector.copyclasses.MyRenameLinkedMode;
 import mychangedetector.editors.RefactoringEditor;
-import mychangedetector.views.RefactoringView;
 
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.commands.operations.IOperationHistory;
@@ -51,13 +50,13 @@ public abstract class Executor implements Cloneable {
 	SpecificationAdapter specification;
 	protected boolean already_executed = false;
 	
-	List<IUndoableOperation> wasUndone;
+	List<IUndoableOperation> wasUndone = new ArrayList<IUndoableOperation>();
+
 	
 	//For doing diffs against.
 	String old_string;
 
 	public SpecificationAdapter getSpecification() {
-		wasUndone = new ArrayList<IUndoableOperation>();
 		return this.specification;
 	}
 
@@ -165,43 +164,41 @@ public abstract class Executor implements Cloneable {
 							
 							String parse_me = undoOp.toString();
 							
-							Pattern p = Pattern.compile("start: (\\d+)"); 
+							Pattern p = Pattern.compile("start: (-*\\d+)"); 
 							Matcher m = p.matcher(parse_me);
 							boolean b = m.find();
 
 							int start = Integer.parseInt(m.group(1));
 							
-							Position change_position = new Position(start,0);
+							Position change_position = null;
 							
-							try {
-								doc.addPosition(change_position);
-							} catch (BadLocationException e1) {
-								// TODO Auto-generated catch block
-								e1.printStackTrace();
+							if(start > 0)
+							{
+								change_position = new Position(start,0);
+								
+								try {
+									doc.addPosition(change_position);
+								} catch (BadLocationException e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
+								}
 							}
-							
 							
 							IStatus s = o.undo(new GlobalUndoContext(),null,null);
 							
+							if(start > 0)
+							{
+								int updated_start_position = change_position.getOffset();
+								TextSelection t = new TextSelection(doc, updated_start_position, 0);	
+								((JavaEditor) editor).getSelectionProvider().setSelection(t);	
+							}
+							
 
-							
-							int updated_start_position = change_position.getOffset();
-							TextSelection t = new TextSelection(doc, updated_start_position, 0);		
-							
-							((JavaEditor) editor).getSelectionProvider().setSelection(t);	
-
-							
-							
-							
-							
-							
 						} catch (ExecutionException e) {
-							// TODO Auto-generated catch block
 							e.printStackTrace();
-						}
+						} 
 						current_text = doc.get();
 					}
-					//SampleBuilder.unpause();
 					
 
 					display.asyncExec(new Runnable() {
@@ -235,41 +232,30 @@ public abstract class Executor implements Cloneable {
         
         // Compute diff. Get the Patch object. Patch is the container for computed deltas.
         Patch patch = DiffUtils.diff(original, revised);
-
+        
+        
         for (Delta delta: patch.getDeltas()) {
-            
-        	if(delta.getType() == Delta.TYPE.INSERT)
-        	{
-        		
-                //Get start position (offset of everything up to the insert.)
-        		
-        		int start_position = 0;
-        		
-        		//(Could make this more efficient by not starting from zero for each insertion.)
-        		for(int i = 0; i < delta.getOriginal().getPosition(); i++)
-        		{
-        			String original_line = original.get(i);
-        			start_position += original_line.length() + 1; //The +1 is for the length of the whitespace delimiter used to split the string in the first place.
-        		}
-        		
-        		//Get end position (start position plus length of all insertions.)
-        		
-        		int end_position = start_position;
-        		
-        		for(int i = 0; i < delta.getRevised().getLines().size(); i++)
-        		{
-        			String line = (String) delta.getRevised().getLines().get(i);
-        			
-        			end_position += line.length() + 1;
-        		}
-        		
-        		
-        		//Tell the refactoring view to make the text gray
         	
-        		RefactoringEditor.refactoringEditor.grayRange(start_position,end_position);
-        		
-                System.out.println("Gray?");
+        	int gray_offset = 0;
+        	int gray_length = 0;
+        	
+        	for(int i = 0; i < delta.getRevised().getPosition(); i++)
+        	{
+        		String line = revised.get(i);
+        		gray_offset += line.length() + 1; //The +1 is for the length of the delimiter.
         	}
+        	
+        	for(int i = 0; i < delta.getRevised().getLines().size(); i++)
+        	{
+        		String line = (String) delta.getRevised().getLines().get(i);
+        		gray_length += line.length() + 1;
+        	}
+        	
+    		//Tell the refactoring view to make the text gray
+        	
+    		RefactoringEditor.refactoringEditor.grayRange(gray_offset,gray_offset + gray_length);
+    		
+            System.out.println("Gray?");
         }
 	}
 	

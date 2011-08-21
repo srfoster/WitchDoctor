@@ -26,14 +26,8 @@ public class MethCall extends Requirement {
 
 	}
 
-	private ASTNodeDescriptor buildBeforeNodeMatcher()
-	{
-		/*
-		ASTNodeBuilder builder = new ASTNodeBuilder();
-		builder.methodCallExpression(call.name());
-		return builder.getNode();
-		*/
-		
+	
+	private ASTNodeDescriptor simpleMatcher(){
 		ASTNodeDescriptor descriptor = new ASTNodeDescriptor();
 		descriptor.setClassName("org.eclipse.jdt.core.dom.MethodInvocation");
 		descriptor.setBindingName(call.name());
@@ -47,7 +41,9 @@ public class MethCall extends Requirement {
 		ChangeMatcher change_event = new ChangeMatcher();
 		
 		change_event.setChangeType(operation);
-		change_event.setBeforeNodeMatcher(buildBeforeNodeMatcher());
+		change_event.setBeforeNodeMatcher(simpleMatcher());
+		change_event.setAfterNodeMatcher(simpleMatcher());
+
 
 		return change_event;
 		
