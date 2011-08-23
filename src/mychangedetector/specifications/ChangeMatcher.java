@@ -8,11 +8,14 @@ import java.util.Map;
 import mychangedetector.ast_helpers.ASTNodeDescriptor;
 import mychangedetector.ast_helpers.ZippingASTVisitor;
 import mychangedetector.change_management.ChangeWrapper;
+import mychangedetector.differencer.Diff;
+import mychangedetector.differencer.simple_differencer.SimpleDiffEntity;
 import mychangedetector.matching.MatchListener;
 import mychangedetector.matching.MatchingASTVisitor;
 import mychangedetector.matching.MyASTMatcher;
 import mychangedetector.matching.constraints.MatchConstraint;
 
+import org.eclipse.core.resources.IMarker;
 import org.eclipse.jdt.core.dom.ASTMatcher;
 import org.eclipse.jdt.core.dom.ASTNode;
 

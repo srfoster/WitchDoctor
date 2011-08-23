@@ -1,5 +1,6 @@
 package mychangedetector.specifications;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +20,45 @@ import org.eclipse.jdt.core.dom.ASTNode;
    
 /* 
  * Next steps:
+ * 
+ * 
+ * 	  Expand the model to include complier errors (so we can do transformations like adding try/catch):
+ *
+ * 	  SampleBuilder (and eventually SimpleDifferencer) should be using SuperResource anywhere that they are currently using IResource.
+ * 			Need to get rid of the checkpoints being IFiles -- if at all possible.  The checkpoints now need to be able to save the state of the compiler errors as well.  Can we clone IResources and save a map of them??
+ * 			Then, we should figure out a way to do diffs on the CompilerMessages too.
+ * 			When that's done, we need to allow the change matchers to match AST nodes based on associated compiler messages (which will probably be saved as properties in the AST node).
+ * 			
+ *     
+ *    Add in new refactorings...
+ *     
+ *     		Adding unimplemented methods and try/catch blocks would be ridiculously useful.\
+ *     		I know they're not "refactorings", but I think they should be the first things we add.
+ *     			The try/catch would be a good example of a refactoring where you'd cycle through multiple options: You might want the try/catch block to surround the current statement, or its parent block, and so on.  Or you might want to add a throws declaration.		
+ *            		
+ *            	-- We could detect the compilation error at a line and surround to catch the unhandled error.
+ *     			
+ *     			The trouble is: How do we incorporate compiler warnings into the current model?  They aren't attributes of the document.  
+ *     				When the user makes a change, the compiler warnings arrive significantly later.
+ *     				Maybe we need to pretend that the compiler warning addition is a change to the document.
+ *     					If we can detect when they arrive, then we can do a diff and decorate it (and/or the relevant ASTNodes) with the new vs. the old warnings (a "warning diff" -- if you will)
+ *     
+ *     					Where's the hook for detecting warnings, though?  I've looked and never found it.
+ *     
+ *     
+ *     
+ *     As another extension of the model, it would be nice to incorporate the location of the cursor.
+ *     		Then we could trigger the Rename linked mode when the user's cursor moves onto a SimpleName.
+ *     			The Requirement would change very little.  It would just check to see if the old SimpleName had no cursor, and the new simple name does.
+ *     
+ *     		We'd need to trigger the refactoring whenever the cursor position changed.
+ *     
+ *     		And we'd need to do something like the above -- do a diff and decorate it with the new cursor position.  The node that changed would be the one the cursor is on.
+ *     		Like the above, it would be a special kind of diff (although not necessarily a subclass) which would involve a before/after ASTNode whose "change" would be the cursor attribute.
+ *     		This would allow us to maintain our same basic model: Sifting through AST diffs.
+ *     
+ *     
+ *     
  *     
  *     
  *     Holy fuck, Extract Method is working!  
@@ -36,12 +76,9 @@ import org.eclipse.jdt.core.dom.ASTNode;
  *
  *
  *
- *        
  *     
- *     Add in new refactorings...
  *     
- *     		Adding unimplemented methods and try/catch blocks would be ridiculously useful.  I know they're not "refactorings", but I think they should be the first things we add.
- *     			The try/catch would be a good example of a refactoring where you'd cycle through multiple options: You might want the try/catch block to surround the current statement, or its parent block, and so on.  Or you might want to add a throws declaration.		
+ *     		Generating getters and setters would be super cool too.
  *     
  *     		Change method signature would be cool -- especially if it uses linked mode and could be done in real-time like Rename.  Should investigate whether it works like that.
  *     			Then you could trigger the Change Signature right after you do the Extract Method -- analogous to how Rename executes after Extract Variable
@@ -60,6 +97,8 @@ import org.eclipse.jdt.core.dom.ASTNode;
  *          
  *          Anonymous class to nested.
  *     
+ *     
+ *     To speed things up.  Maybe we can avoid saving the file each time we check for changes -- just keep strings as checkpoints instead of ifiles.
  *     
  *     What are some good ways to demo this tool?  Are there any canonical programs that we can write and show that the process is easier with the tool?
  *     Is there some way to examine a program and determine whether it would have benefitted from having been written with the help of the tool? (That's crazy, I know.  But it's worth writing down all ideas -- even the "out there" ones.)
@@ -85,10 +124,7 @@ public class Specification implements Cloneable {
 		for(Requirement req : requirements)
 		{
 			req.match(change,constraints);
-			
 		} 
-		 
-
 	}
 	
 	public boolean tryExecute(){

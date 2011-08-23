@@ -44,14 +44,10 @@ import org.eclipse.ui.part.FileEditorInput;
 
 public class SampleBuilder extends IncrementalProjectBuilder {
 	
-	SampleResourceVisitor resource_visitor = new SampleResourceVisitor();
-	SampleDeltaVisitor delta_visitor = new SampleDeltaVisitor();
 	
-	IFile right, left, original_left;
+	SuperResource right, left, original_left;
 	
 	ChangeStream stream = new ChangeStream();
-	
-	private boolean first_run = true;
 	
 	public static IProject project;
 	
@@ -126,15 +122,15 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 	public void resetCheckpoints(String text){
  
         try {
-			left.delete(true,false,null);
-	        left.create(new ByteArrayInputStream(text.getBytes()), true, null);
+			((IFile)left.getFile()).delete(true,false,null);
+	        ((IFile)left.getFile()).create(new ByteArrayInputStream(text.getBytes()), true, null);
 		} catch (CoreException e) {
 			e.printStackTrace();
 		}
 		
         try {
-			original_left.delete(true,false,null);
-	        original_left.create(new ByteArrayInputStream(text.getBytes()), true, null);
+        	((IFile)original_left.getFile()).delete(true,false,null);
+        	((IFile)original_left.getFile()).create(new ByteArrayInputStream(text.getBytes()), true, null);
 		} catch (CoreException e) {
 			e.printStackTrace();
 		}
@@ -143,43 +139,6 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 	   	unpause();
 	}
 	
-
-	class SampleDeltaVisitor implements IResourceDeltaVisitor {
-	
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see org.eclipse.core.resources.IResourceDeltaVisitor#visit(org.eclipse.core.resources.IResourceDelta)
-		 */		
-		public boolean visit(IResourceDelta delta) throws CoreException {
-
-			IResource resource = delta.getResource();
-			switch (delta.getKind()) {
-			case IResourceDelta.ADDED:
-				// handle added resource
-				checkChanges(resource);
-				break;
-			case IResourceDelta.REMOVED:
-				// handle removed resource
-				break;
-			case IResourceDelta.CHANGED:
-				// handle changed resource
-				checkChanges(resource);
-				break;
-			}
-			//return true to continue visiting children.
-			return true;
-		}
-	}
-
-	class SampleResourceVisitor implements IResourceVisitor {
-
-		public boolean visit(IResource resource) {
-			checkChanges(resource);
-			//return true to continue visiting children.
-			return true;
-		}
-	}
 
 
 	public static final String BUILDER_ID = "MyChangeDetector.sampleBuilder";
@@ -211,7 +170,9 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 		*/
 	}
 
-	public void checkChanges(IResource resource) {
+	public void checkChanges(SuperResource super_resource) {
+		
+		IResource resource = super_resource.getFile();
 		
 		if(no_build)
 			return;
@@ -223,10 +184,10 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 
 		
 		if (resource instanceof IFile && resource.getName().endsWith(".java") && !(resource.getName().startsWith("recent.") || resource.getName().startsWith("original."))) {
-	        right = (IFile) resource;	        
+	        right = super_resource;	        
 	        //deleteMarkers(right);
 	       
-	        IPath right_path = right.getFullPath();
+	        IPath right_path = right.getFile().getFullPath();
 	        List<String> path_segments = Arrays.asList(right_path.segments());
 	        List<String> relevant_path_segments = path_segments.subList(2,path_segments.size()-1);
 	        
@@ -242,17 +203,17 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 	        }
 	        
 
-	        left = currentProject().getFile("checkpoints/recent" + path_prefix + "/" + right.getName());
+	        left = new SuperResource(currentProject().getFile("checkpoints/recent" + path_prefix + "/" + right.getFile().getName()));
 	        project = currentProject();
 	        
-	        original_left = currentProject().getFile("checkpoints/original" + path_prefix + "/" + right.getName());
+	        original_left = new SuperResource(currentProject().getFile("checkpoints/original" + path_prefix + "/" + right.getFile().getName()));
 
 	        
 
-	        if(!left.exists())
+	        if(!left.getFile().exists())
 	        {
 	        	try {
-					left.create(right.getContents(), true, null);
+					left.getFile().create(right.getFile().getContents(), true, null);
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
@@ -260,48 +221,27 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 	        }
 	        
 
-	        if(!original_left.exists())
+	        if(!original_left.getFile().exists())
 	        {
 	        	try {
-					original_left.create(right.getContents(), true, null);
+					original_left.getFile().create(right.getFile().getContents(), true, null);
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
 	        	
 	        }
 	        
-	        first_run = false;
-	        
-	      
-			try {
-				String left_contents_debug = convertStreamToString(left.getContents());
-				String right_contents_debug = convertStreamToString(right.getContents());
-
-				/*
-				System.out.println(left_contents_debug);
-				System.out.println("************");
-				System.out.println("************");
-				System.out.println("************");
-				System.out.println("************");
-				System.out.println("************");
-				System.out.println(right_contents_debug);
-				*/
-
-			} catch (Exception e2) {
-				// TODO Auto-generated catch block
-				e2.printStackTrace();
-			}
-	        
+	
 			Differencer diff = new SimpleDifferencer();
-			List<Diff> list = diff.perform(left,right);
+			List<Diff> list = diff.perform(left.getFile(),right.getFile());
 
 	        if(list != null)
 	        {
 	        	String left_contents = null;
 	        	String right_contents = null;
 				try {
-					left_contents = convertStreamToString(left.getContents());
-					right_contents = convertStreamToString(right.getContents());
+					left_contents = convertStreamToString(left.getFile().getContents());
+					right_contents = convertStreamToString(right.getFile().getContents());
 				} catch (IOException e1) {
 					e1.printStackTrace();
 				} catch (CoreException e1) {
@@ -311,13 +251,13 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 
 
 		        try {
-					left.delete(true,false,null);
-			        left.create(right.getContents(), true, null);
+					left.getFile().delete(true,false,null);
+			        left.getFile().create(right.getFile().getContents(), true, null);
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
 				
-		        stream.addSet(list, new FileVersion(left.getName(), left_contents), new FileVersion(right.getName(), right_contents));
+		        stream.addSet(list, new FileVersion(left.getFile().getName(), left_contents), new FileVersion(right.getFile().getName(), right_contents));
 		        stream.print();
 				
 	        } else {

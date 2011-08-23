@@ -59,7 +59,10 @@ public class ChangeWrapper {
 	}
 	
 	
-	
+	public Diff unwrap()
+	{
+		return change;
+	}
 
 
 }

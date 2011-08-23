@@ -1,10 +1,14 @@
 package mychangedetector.differencer.simple_differencer;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import difflib.Delta;
 import mychangedetector.differencer.Diff;
 import mychangedetector.differencer.DiffEntity;
+
+import org.eclipse.core.resources.IMarker;
+
+import difflib.Delta;
 
 public class SimpleDiff implements Diff {
 	
@@ -12,7 +16,9 @@ public class SimpleDiff implements Diff {
 	List<String> original;
 	List<String> revised;
 	String delimiter;
-
+	List<IMarker> problems = new ArrayList<IMarker>();
+	SimpleDifferencer parent;
+	
 	public SimpleDiff(Delta delta, List<String> original, List<String> revised, String delimiter) {
 		this.delta = delta;
 		this.original = original;
@@ -63,12 +69,22 @@ public class SimpleDiff implements Diff {
 
 	@Override
 	public DiffEntity getChangedEntity() {
-		return new SimpleDiffEntity(delta.getOriginal(),original, delimiter);
+		SimpleDiffEntity entity = new SimpleDiffEntity(delta.getOriginal(),original, delimiter);
+		entity.setParent(parent);
+		
+		return entity;
 	}
 
 	@Override
 	public DiffEntity getNewEntity() {
-		return new SimpleDiffEntity(delta.getRevised(),revised, delimiter);
+		SimpleDiffEntity entity = new SimpleDiffEntity(delta.getRevised(),revised, delimiter);
+		entity.setParent(parent);
+		
+		return entity;
+	}
+
+	public void setParent(SimpleDifferencer parent) {
+		this.parent = parent;
 	}
 
 

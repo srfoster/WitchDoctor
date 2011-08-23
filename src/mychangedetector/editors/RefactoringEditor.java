@@ -3,17 +3,24 @@ package mychangedetector.editors;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
+import mychangedetector.builder.CompilerMessage;
 import mychangedetector.builder.SampleBuilder;
+import mychangedetector.builder.SuperResource;
 
 import org.eclipse.core.commands.operations.IOperationHistory;
 import org.eclipse.core.commands.operations.IOperationHistoryListener;
 import org.eclipse.core.commands.operations.OperationHistoryEvent;
 import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.core.internal.resources.File;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.internal.ui.JavaPlugin;
 import org.eclipse.jdt.internal.ui.javaeditor.CompilationUnitEditor;
+import org.eclipse.jdt.internal.ui.viewsupport.IProblemChangedListener;
 import org.eclipse.jdt.ui.PreferenceConstants;
 import org.eclipse.jdt.ui.text.IJavaPartitions;
 import org.eclipse.jdt.ui.text.JavaTextTools;
@@ -89,6 +96,26 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		super.createPartControl(parent);
 		
 		
+		
+		JavaPlugin.getDefault().getProblemMarkerManager().addListener(
+				new IProblemChangedListener(){
+
+					@Override
+					public void problemsChanged(IResource[] changedResources,
+							boolean isMarkerChange) {
+						List<CompilerMessage> problems = getProblemsIn(changedResources[0]);
+						
+						SuperResource resource = new SuperResource(currentFile());
+						resource.setCompilerMessages(problems);
+						
+						//refactor(resource,RefactoringEditor.this);
+					}
+				}
+		);
+
+		
+
+		
 		//Code folding makes everything really annoying.  So we'll quick-fix everything by disabling it.
 		if(JavaPlugin.getDefault().getPreferenceStore().getBoolean(PreferenceConstants.EDITOR_FOLDING_ENABLED))
 		{
@@ -125,7 +152,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 								public void run(){
 									display.asyncExec(new Runnable() {
 										public void run(){
-											refactor(currentFile(),doc,RefactoringEditor.this);
+											refactor(new SuperResource(currentFile()),RefactoringEditor.this);
 										}
 									});
 								}
@@ -244,9 +271,10 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	
 
 
-	private void refactor(final File file, final IDocument doc, final IEditorPart editor)
+	private void refactor(final SuperResource resource, final IEditorPart editor)
 	{
 
+		
 		editor.doSave(
 
 				new IProgressMonitor(){
@@ -259,14 +287,11 @@ public class RefactoringEditor extends CompilationUnitEditor {
 
 					@Override
 					public void done() {
-						// TODO Auto-generated method stub
-						
-						builder.checkChanges(file);
+						builder.checkChanges(resource);
 					}
 
 					@Override
 					public void internalWorked(double work) {
-						// TODO Auto-generated method stub
 						
 					}
 
@@ -449,7 +474,6 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	
 				character = doc.get(i, 1);
 				
-			
 				if(character.equals("\n"))
 				{
 					doc.replace(i,0,""); 
@@ -459,6 +483,36 @@ public class RefactoringEditor extends CompilationUnitEditor {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+
+	}
+
+	public List<CompilerMessage> getProblemsIn(IResource resource) {
+		
+		IMarker[] markers = null;
+		try {
+			markers = resource.findMarkers(null,true,IResource.DEPTH_ZERO);
+		} catch (CoreException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+				
+		List<CompilerMessage> ret = new ArrayList<CompilerMessage>();
+		
+		for(IMarker p : markers)
+		{
+			try {
+				Map m = p.getAttributes();
+
+				ret.add(new CompilerMessage(p));
+			} catch (CoreException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		return ret;
+		
 	}
 
 }

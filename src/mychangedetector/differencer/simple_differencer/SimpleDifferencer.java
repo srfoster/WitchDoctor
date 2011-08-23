@@ -5,10 +5,13 @@ import java.util.Arrays;
 import java.util.List;
 
 import mychangedetector.differencer.Diff;
+import mychangedetector.differencer.DiffRange;
 import mychangedetector.differencer.Differencer;
+import mychangedetector.editors.RefactoringEditor;
 import mychangedetector.util.EclipseUtil;
 
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IMarker;
 
 import difflib.Delta;
 import difflib.DiffUtils;
@@ -36,7 +39,9 @@ public class SimpleDifferencer implements Differencer {
         List<Diff> ret = new ArrayList<Diff>();
         
         for (Delta delta: patch.getDeltas()) {
-        	ret.add(new SimpleDiff(delta, original, revised, delimiter));
+    		SimpleDiff diff = new SimpleDiff(delta, original, revised, delimiter);
+    		diff.setParent(this);    		
+        	ret.add(diff);
         }
 
         return ret;
