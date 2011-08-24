@@ -21,7 +21,7 @@ public class NoopExecutor extends Executor {
 	}
 
 	@Override
-	protected void afterRollback(IEditorPart editor, IDocument doc, IFile file) {
+	protected void afterRollback(IEditorPart editor, IDocument doc) {
 		// TODO Auto-generated method stub
 		
 	}

@@ -8,7 +8,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,22 +17,14 @@ import mychangedetector.differencer.Diff;
 import mychangedetector.differencer.Differencer;
 import mychangedetector.differencer.simple_differencer.SimpleDifferencer;
 
-import org.eclipse.core.internal.resources.File;
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceDelta;
-import org.eclipse.core.resources.IResourceDeltaVisitor;
-import org.eclipse.core.resources.IResourceVisitor;
-import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.part.FileEditorInput;
+import org.eclipse.core.runtime.Path;
 
 
 /**
@@ -42,10 +34,10 @@ import org.eclipse.ui.part.FileEditorInput;
  *
  */
 
-public class SampleBuilder extends IncrementalProjectBuilder {
+public class SampleBuilder {
 	
 	
-	SuperResource right, left, original_left;
+	SuperResource right, left;
 	
 	ChangeStream stream = new ChangeStream();
 	
@@ -56,14 +48,16 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 	public static SampleBuilder builder = null;
 	
 	
+	private Map<String, SuperResource> checkpoints = new HashMap<String,SuperResource>();
+	private Map<String, SuperResource> originals = new HashMap<String,SuperResource>();
+
+	
 	
 	public SampleBuilder(){
 		if(builder == null)
 			builder = this;
 		
 	}
-	
-
 
 	public static void pause(){
 		no_build = true;
@@ -74,66 +68,19 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 		no_build = false;
 
 	}
-
-
 	
 	public boolean isPaused()
 	{
 		return no_build;
 	}
 	
-	public void fullBuild(){
-		return;
-		
-		/*
-		try{
-			fullBuild(null);
-		}catch(CoreException ce){
-			
-		}
-		*/
-	}
-	
-	protected void fullBuild(final IProgressMonitor monitor) throws CoreException {
-		return;
-		
-		/*
-		if(no_build)
-			return;
-		
-		try {
-			getProject().accept(resource_visitor);
-		} catch (CoreException e) {
-		}
-		*/
-	}
 
-	protected void incrementalBuild(IResourceDelta delta, IProgressMonitor monitor) throws CoreException {
-		return;
-		
-		/*
-		if(no_build)
-			return;
-		// the visitor does the work.
-		delta.accept(delta_visitor);
-		*/
-	}
-	
+
 	public void resetCheckpoints(String text){
- 
-        try {
-			((IFile)left.getFile()).delete(true,false,null);
-	        ((IFile)left.getFile()).create(new ByteArrayInputStream(text.getBytes()), true, null);
-		} catch (CoreException e) {
-			e.printStackTrace();
-		}
+		originals = new HashMap<String,SuperResource>();
+		checkpoints = new HashMap<String, SuperResource>();
 		
-        try {
-        	((IFile)original_left.getFile()).delete(true,false,null);
-        	((IFile)original_left.getFile()).create(new ByteArrayInputStream(text.getBytes()), true, null);
-		} catch (CoreException e) {
-			e.printStackTrace();
-		}
+		originals.put(right.getName(),new SuperResource(text,right.getName()));
 		
 	   	stream.clear();
 	   	unpause();
@@ -144,160 +91,71 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 	public static final String BUILDER_ID = "MyChangeDetector.sampleBuilder";
 
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see org.eclipse.core.internal.events.InternalBuilder#build(int,
-	 *      java.util.Map, org.eclipse.core.runtime.IProgressMonitor)
-	 */
-	protected IProject[] build(int kind, Map args, IProgressMonitor monitor)
-			throws CoreException {
-		
-		return null;
-		
-		/*
-		if (kind == FULL_BUILD) {
-			fullBuild(monitor);
-		} else {
-			IResourceDelta delta = getDelta(getProject());
-			if (delta == null) {
-				fullBuild(monitor);
-			} else {
-				incrementalBuild(delta, monitor);
-			}
-		}
-		return null;
-		*/
-	}
+
 
 	public void checkChanges(SuperResource super_resource) {
 		
-		IResource resource = super_resource.getFile();
 		
 		if(no_build)
 			return;
-
 		
-		createFolder("checkpoints");
-		createFolder("checkpoints/recent");
-		createFolder("checkpoints/original");
+        right = super_resource;
+        String name = right.getName();
+        left = checkpoints.get(name);
 
+        if(left == null)
+        {
+        	left = originals.get(right.getName());
+        	if(left != null)
+        		checkpoints.put(right.getName(),left);
+        }
+        
+  
+        if(left == null)
+        {
+        	SuperResource new_resource =  new SuperResource(right.getContents(),right.getName());
+        	
+        	checkpoints.put(right.getName(), new_resource);
+        	left = new_resource;
+        }
+        
+
+		Differencer diff = new SimpleDifferencer();
+		List<Diff> list = diff.perform(left,right);
+
+        if(list != null)
+        {
+        	String left_contents = left.getContents();
+        	String right_contents = right.getContents();
 		
-		if (resource instanceof IFile && resource.getName().endsWith(".java") && !(resource.getName().startsWith("recent.") || resource.getName().startsWith("original."))) {
-	        right = super_resource;	        
-	        //deleteMarkers(right);
-	       
-	        IPath right_path = right.getFile().getFullPath();
-	        List<String> path_segments = Arrays.asList(right_path.segments());
-	        List<String> relevant_path_segments = path_segments.subList(2,path_segments.size()-1);
-	        
-	        String path_prefix = "";
-	        
-	        for(String seg : relevant_path_segments) 
-	        {
-	        	
-		    	path_prefix += "/" + seg;
-		    	
-	        	createFolder("checkpoints/recent" + path_prefix);
-	        	createFolder("checkpoints/original" + path_prefix);
-	        }
-	        
-
-	        left = new SuperResource(currentProject().getFile("checkpoints/recent" + path_prefix + "/" + right.getFile().getName()));
-	        project = currentProject();
-	        
-	        original_left = new SuperResource(currentProject().getFile("checkpoints/original" + path_prefix + "/" + right.getFile().getName()));
-
-	        
-
-	        if(!left.getFile().exists())
-	        {
-	        	try {
-					left.getFile().create(right.getFile().getContents(), true, null);
-				} catch (CoreException e) {
-					e.printStackTrace();
-				}
-	        	
-	        }
-	        
-
-	        if(!original_left.getFile().exists())
-	        {
-	        	try {
-					original_left.getFile().create(right.getFile().getContents(), true, null);
-				} catch (CoreException e) {
-					e.printStackTrace();
-				}
-	        	
-	        }
-	        
+			
+	        stream.addSet(list, new FileVersion(left.getName(), left_contents), new FileVersion(right.getName(), right_contents));
+	        stream.print();
+			
+        } else {
+        	System.out.println("List was null.");
+        }
+        
 	
-			Differencer diff = new SimpleDifferencer();
-			List<Diff> list = diff.perform(left.getFile(),right.getFile());
-
-	        if(list != null)
-	        {
-	        	String left_contents = null;
-	        	String right_contents = null;
-				try {
-					left_contents = convertStreamToString(left.getFile().getContents());
-					right_contents = convertStreamToString(right.getFile().getContents());
-				} catch (IOException e1) {
-					e1.printStackTrace();
-				} catch (CoreException e1) {
-					e1.printStackTrace();
-				}
-	     
-
-
-		        try {
-					left.getFile().delete(true,false,null);
-			        left.getFile().create(right.getFile().getContents(), true, null);
-				} catch (CoreException e) {
-					e.printStackTrace();
-				}
-				
-		        stream.addSet(list, new FileVersion(left.getFile().getName(), left_contents), new FileVersion(right.getFile().getName(), right_contents));
-		        stream.print();
-				
-	        } else {
-	        	System.out.println("List was null.");
-	        }
-	        
-	        
-	        //For the purposes of placing markers, we'll calculate the clean list of changes -- i.e. noops ignored.
-	        /*
-	        fDJob = new ExtendedDistiller();
-	        fDJob.performDistilling(original_left, right);
-
-	        List<SourceCodeChange> clean_list = fDJob.getSourceCodeChanges();
-
-	        if(clean_list != null)
-	        {
-		        for(int i = 0; i < clean_list.size(); i++)
-		        {
-		        	SourceCodeChange scc = clean_list.get(i);
-		        
-		        	String change_type = scc.getChangeType().toString();
-		        	
-		        	SourceCodeEntity entity = null;
-		        	
-		        	if(scc instanceof Update)
-		        		entity = ((Update)scc).getNewEntity();
-		        	else
-		        		entity = scc.getChangedEntity();
-		        	
-		        	int offset = entity.getSourceRange().getOffset();
-		        	int length = entity.getSourceRange().getLength();
-		        	
-		     
-		        	addMarker(right, change_type,offset, offset+length, change_type);
-		        }
-	        }
-	        */
-	        
-		}
 	}
+	
+	
+	public void setUp(SuperResource superResource) {
+		originals.put(superResource.getName(),superResource);
+	}
+
+	public SuperResource getOriginal(String string) {
+		return originals.get(string);
+	}
+
+	
+	
+	
+	
+	
+	
+	
+	//These are mostly for reference now....  Should probably just email them to myself.
 	
 	private void addMarker(IFile file, String message, int start, int end, String type) {
 		try {
@@ -351,7 +209,7 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 		}
 	}
 
-	void deleteMarkers(IFile file)
+	private void deleteMarkers(IFile file)
 	{
 		try {
 			file.deleteMarkers("MyChangeDetector.highlight_green", false, IResource.DEPTH_ZERO);
@@ -390,44 +248,8 @@ public class SampleBuilder extends IncrementalProjectBuilder {
 				return "";
 			}
 	}
-	
-	private void createFolder(String name)
-	{
-		IFolder folder = currentProject().getFolder(name);
-		
-		if(!folder.exists())
-		{
-			try {
-				folder.create(true,true,null);
-			} catch (CoreException e1) {
-				e1.printStackTrace();
-			}
-		}
-		
-	}
-	
-	private void deleteFile(String file_name)
-	{
-		IFile file = currentProject().getFile(file_name);
-		
-		try {
-			file.delete(true, null);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	
-	private IProject currentProject()
-	{
-		final IEditorPart editor = PlatformUI.getWorkbench() 
-		.getActiveWorkbenchWindow().getActivePage()
-		.getActiveEditor();
-		
-		FileEditorInput input = (FileEditorInput) editor.getEditorInput();
-		
-		File file = (File)input.getFile();
-		return ((IResource)file).getProject();
-	}
+
+
+
 	
 }

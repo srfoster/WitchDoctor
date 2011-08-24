@@ -25,7 +25,9 @@ import org.eclipse.jdt.core.dom.ASTNode;
  * 	  Expand the model to include complier errors (so we can do transformations like adding try/catch):
  *
  * 	  SampleBuilder (and eventually SimpleDifferencer) should be using SuperResource anywhere that they are currently using IResource.
- * 			Need to get rid of the checkpoints being IFiles -- if at all possible.  The checkpoints now need to be able to save the state of the compiler errors as well.  Can we clone IResources and save a map of them??
+ * 			I THINK that all references to IResource have been replaced with SuperResource -- speeding things up noticeably and paving the way for...	
+ * 
+ * 			Reinstate problem detector: It appears to be calling refactoring infinitely.
  * 			Then, we should figure out a way to do diffs on the CompilerMessages too.
  * 			When that's done, we need to allow the change matchers to match AST nodes based on associated compiler messages (which will probably be saved as properties in the AST node).
  * 			

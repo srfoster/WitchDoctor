@@ -62,15 +62,7 @@ public class SpecificationAdapter implements Cloneable {
 		CompilationUnit root = (CompilationUnit) node.getRoot();
 		
 		List types = root.types();
-		
 		SimpleName type_name = (SimpleName) ((TypeDeclaration)types.get(0)).getStructuralProperty(TypeDeclaration.NAME_PROPERTY);
-		PackageDeclaration package_declaration = (PackageDeclaration) root.getStructuralProperty(CompilationUnit.PACKAGE_PROPERTY);
-		
-		QualifiedName package_name = (QualifiedName) package_declaration.getStructuralProperty(PackageDeclaration.NAME_PROPERTY);
-		String class_name_prefix = package_name.toString().replace(".","/");
-		
-		
-		
-		return class_name_prefix + "/" + type_name.toString();
+		return type_name.toString();
 	}
 }

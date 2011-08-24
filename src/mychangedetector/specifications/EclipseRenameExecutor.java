@@ -51,7 +51,7 @@ public class EclipseRenameExecutor extends Executor {
 	}
 
 	@Override
-	public void afterRollback(final IEditorPart editor, final IDocument doc, final IFile file) {
+	public void afterRollback(final IEditorPart editor, final IDocument doc) {
 		SampleBuilder.pause();
 		
 		final int start_position = old_name.getStartPosition();

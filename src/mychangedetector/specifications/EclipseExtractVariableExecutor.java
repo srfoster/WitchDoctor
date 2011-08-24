@@ -43,8 +43,7 @@ public class EclipseExtractVariableExecutor extends Executor {
 	}
 
 	@Override
-	public void afterRollback(final IEditorPart editor, final IDocument doc,
-			final IFile file) {
+	public void afterRollback(final IEditorPart editor, final IDocument doc) {
 
 		final int start_position = extracted_expression.getStartPosition();
 		final int length         = extracted_expression.getLength();

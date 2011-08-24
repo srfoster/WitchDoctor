@@ -229,17 +229,6 @@
       </persistent>
    </extension>
    <extension
-         id="sampleBuilder"
-         name="Sample Project Builder"
-         point="org.eclipse.core.resources.builders">
-      <builder
-            hasNature="true">
-         <run
-               class="mychangedetector.builder.SampleBuilder">
-         </run>
-      </builder>
-   </extension>
-   <extension
          id="sampleNature"
          name="Sample Project Nature"
          point="org.eclipse.core.resources.natures">

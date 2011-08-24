@@ -14,6 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import mychangedetector.builder.SampleBuilder;
+import mychangedetector.builder.SuperResource;
 import mychangedetector.copyclasses.MyRenameLinkedMode;
 import mychangedetector.editors.RefactoringEditor;
 
@@ -23,8 +24,8 @@ import org.eclipse.core.commands.operations.IUndoableOperation;
 import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.core.internal.commands.operations.GlobalUndoContext;
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.jdt.internal.ui.JavaPlugin;
 import org.eclipse.jdt.internal.ui.javaeditor.CompilationUnitEditor;
 import org.eclipse.jdt.internal.ui.javaeditor.JavaEditor;
 import org.eclipse.jdt.internal.ui.refactoring.reorg.RenameLinkedMode;
@@ -112,12 +113,12 @@ public abstract class Executor implements Cloneable {
 
 		final String class_name = specification.getCheckpointName();
 
-		final IFile backup = SampleBuilder.project
-		.getFile("checkpoints/original/" + class_name + ".java");
-		final IFile recent = SampleBuilder.project
-		.getFile("checkpoints/recent/" + class_name + ".java");
-		final IFile file = SampleBuilder.project.getFile("src/" + class_name
-				+ ".java");
+		final SuperResource backup = RefactoringEditor.refactoringEditor.getBuilder().getOriginal(class_name + ".java");
+		
+		final IFile file = RefactoringEditor.refactoringEditor.currentFile();
+			
+		//	= SampleBuilder.project.getFile("src/" + class_name
+		//		+ ".java");
 		
 		
 
@@ -145,8 +146,7 @@ public abstract class Executor implements Cloneable {
 
 				
 				try {
-					final String backup_text = convertStreamToString(backup
-							.getContents());
+					final String backup_text = backup.getContents();
 					//doc.set(backup_text);
 					
 					IOperationHistory o = OperationHistoryFactory.getOperationHistory();
@@ -203,17 +203,10 @@ public abstract class Executor implements Cloneable {
 
 					display.asyncExec(new Runnable() {
 						public void run(){
-							afterRollback(editor, doc, file);
+							afterRollback(editor, doc);
 						}
 					});
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					SampleBuilder.unpause();
-				} catch (CoreException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					SampleBuilder.unpause();
+				
 				} finally {
 					
 				}
@@ -297,7 +290,7 @@ public abstract class Executor implements Cloneable {
 	}
 
 	protected abstract void afterRollback(final IEditorPart editor,
-			final IDocument doc, IFile file);
+			final IDocument doc);
 	
 	
 	//Errr... Do we need start_position here??

@@ -82,6 +82,11 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		refactoringEditor = this;
 	}
 	
+	public SampleBuilder getBuilder()
+	{
+		return builder;
+	}
+	
 	@Override
 	protected void setPreferenceStore(IPreferenceStore store) {
 		super.setPreferenceStore(store);
@@ -96,6 +101,8 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		super.createPartControl(parent);
 		
 		
+		builder.setUp(new SuperResource(currentDocument().get(), currentFile().getName()));
+		
 		
 		JavaPlugin.getDefault().getProblemMarkerManager().addListener(
 				new IProblemChangedListener(){
@@ -105,7 +112,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 							boolean isMarkerChange) {
 						List<CompilerMessage> problems = getProblemsIn(changedResources[0]);
 						
-						SuperResource resource = new SuperResource(currentFile());
+						SuperResource resource = new SuperResource(getText(), currentFile().getName());
 						resource.setCompilerMessages(problems);
 						
 						//refactor(resource,RefactoringEditor.this);
@@ -152,7 +159,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 								public void run(){
 									display.asyncExec(new Runnable() {
 										public void run(){
-											refactor(new SuperResource(currentFile()),RefactoringEditor.this);
+											refactor(new SuperResource(getText(), currentFile().getName()),RefactoringEditor.this);
 										}
 									});
 								}
@@ -252,7 +259,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 
 
 	
-	private File currentFile()
+	public File currentFile()
 	{		
 		FileEditorInput input = (FileEditorInput) this.getEditorInput();
 		
@@ -273,8 +280,9 @@ public class RefactoringEditor extends CompilationUnitEditor {
 
 	private void refactor(final SuperResource resource, final IEditorPart editor)
 	{
+		builder.checkChanges(resource);
 
-		
+		/*
 		editor.doSave(
 
 				new IProgressMonitor(){
@@ -328,6 +336,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 					
 				}
 		);
+		*/
 		//file.setContents(new ByteArrayInputStream(doc.get().getBytes()),true,false,null);
 
 	}

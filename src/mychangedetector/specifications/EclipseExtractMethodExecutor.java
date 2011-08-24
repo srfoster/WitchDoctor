@@ -13,6 +13,7 @@ import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.internal.corext.refactoring.code.ExtractMethodRefactoring;
+import org.eclipse.jdt.internal.ui.javaeditor.EditorUtility;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.ltk.core.refactoring.Change;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
@@ -47,12 +48,11 @@ public class EclipseExtractMethodExecutor extends Executor {
 	}
 
 	@Override
-	public void afterRollback(final IEditorPart editor, final IDocument doc,
-			final IFile file) {
+	public void afterRollback(final IEditorPart editor, final IDocument doc) {
 
 		String class_name = getSpecification().getCheckpointName();
   
-    	ICompilationUnit i = JavaCore.createCompilationUnitFrom(file);
+    	ICompilationUnit i = (ICompilationUnit) EditorUtility.getEditorInputJavaElement(editor, true);
     	
     	String method_name = ((ExtractMethodSpecificationAdapter)getSpecification()).getMethodName();
     	    	
