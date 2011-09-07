@@ -51,5 +51,10 @@ public class SuperResource {
 	{
 		this.compiler_messages = compiler_messages;
 	}
+	
+	public List<CompilerMessage> getCompilerMessages()
+	{
+		return this.compiler_messages;
+	}
 
 }

@@ -51,11 +51,12 @@ public abstract class Requirement implements Cloneable {
 	//NOTE: Might want to change these methods to make them more symmetrical.
 	
 	public void setProperty(String key, ASTNode current, ChangeWrapper change) {
+		
 		for(FreeVar var : bindings)
 		{
 			if(var.nameIs(key))
 			{
-				if(var.isNotBound())
+				if(var.isNotBound() && specification.getProperty(key).isNotBound())
 				{
 					var.bind(current);
 					var.setContext(change);

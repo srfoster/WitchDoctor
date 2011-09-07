@@ -1,9 +1,10 @@
 package mychangedetector.editors;
 
+
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import mychangedetector.builder.CompilerMessage;
 import mychangedetector.builder.SampleBuilder;
@@ -14,13 +15,10 @@ import org.eclipse.core.commands.operations.IOperationHistoryListener;
 import org.eclipse.core.commands.operations.OperationHistoryEvent;
 import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.core.internal.resources.File;
-import org.eclipse.core.resources.IMarker;
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.internal.ui.JavaPlugin;
 import org.eclipse.jdt.internal.ui.javaeditor.CompilationUnitEditor;
-import org.eclipse.jdt.internal.ui.viewsupport.IProblemChangedListener;
+import org.eclipse.jdt.internal.ui.javaeditor.IJavaAnnotation;
+import org.eclipse.jdt.internal.ui.javaeditor.JavaAnnotationIterator;
 import org.eclipse.jdt.ui.PreferenceConstants;
 import org.eclipse.jdt.ui.text.IJavaPartitions;
 import org.eclipse.jdt.ui.text.JavaTextTools;
@@ -29,6 +27,10 @@ import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.Position;
+import org.eclipse.jface.text.source.Annotation;
+import org.eclipse.jface.text.source.IAnnotationModel;
+import org.eclipse.jface.text.source.IAnnotationModelExtension2;
+import org.eclipse.jface.text.source.IAnnotationModelListener;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
@@ -41,6 +43,7 @@ import org.eclipse.swt.events.VerifyEvent;
 import org.eclipse.swt.events.VerifyListener;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.FileEditorInput;
@@ -63,6 +66,9 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	private List<Position> grayRanges;
 	
 	public static StyledText styledText;
+	
+	private boolean is_paused = false;
+	private boolean is_drawing_paused = false;
 	
 	private Integer[] cancellationKeyCodes = {
 		SWT.ESC,
@@ -99,163 +105,149 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	
 	public void createPartControl(Composite parent) {
 		super.createPartControl(parent);
-		
-		
-		builder.setUp(new SuperResource(currentDocument().get(), currentFile().getName()));
-		
-		
-		JavaPlugin.getDefault().getProblemMarkerManager().addListener(
-				new IProblemChangedListener(){
 
-					@Override
-					public void problemsChanged(IResource[] changedResources,
-							boolean isMarkerChange) {
-						List<CompilerMessage> problems = getProblemsIn(changedResources[0]);
+		try{
+
+			builder.setUp(new SuperResource(currentDocument().get(), currentFile().getName()));
+			
+			//Trigger refactoring when problem markers may have changed.
+			IAnnotationModel model= getDocumentProvider().getAnnotationModel(getEditorInput());
+			model.addAnnotationModelListener(
+			
+					new IAnnotationModelListener(){
+	
+						@Override
+						public void modelChanged(IAnnotationModel model) {
+							
+							List<CompilerMessage> messages = getCompilerMessages(model);
+							
+							refactor(messages,RefactoringEditor.this);
 						
-						SuperResource resource = new SuperResource(getText(), currentFile().getName());
-						resource.setCompilerMessages(problems);
+						}
 						
-						//refactor(resource,RefactoringEditor.this);
+					}
+			);
+			
+			//Code folding makes everything really annoying.  So we'll quick-fix everything by disabling it.
+			if(JavaPlugin.getDefault().getPreferenceStore().getBoolean(PreferenceConstants.EDITOR_FOLDING_ENABLED))
+			{
+				IAction action= getAction("FoldingToggle"); //$NON-NLS-1$
+				action.run();
+			}
+			
+			final IDocument doc = currentDocument();
+					
+			ISourceViewer viewer = getSourceViewer();
+					
+	        final StyledText text = viewer.getTextWidget();
+	        
+	                
+	        
+	        styledText = text;
+	       
+	        
+	        text.addVerifyListener(new VerifyListener(){
+	        	public void verifyText(VerifyEvent event)
+	        	{
+	        		/*
+					if(SampleBuilder.builder.isPaused()){
+						event.doit = false;
+						return;
+					}	
+					*/
+					
+					IAnnotationModel model= getDocumentProvider().getAnnotationModel(getEditorInput());
+					List<CompilerMessage> messages = getCompilerMessages(model);
+		
+					refactor(messages,RefactoringEditor.this);
+	        	}
+	        });
+	        
+	        
+	        text.addVerifyKeyListener(new VerifyKeyListener(){
+	        	public void verifyKey(VerifyEvent e)
+	        	{
+					if ((e.keyCode == SWT.TAB || e.keyCode == SWT.CR) && grayRanges.size() > 0)
+					{
+						confirmChanges(); //Get rid of the gray
+	
+						e.doit = false;   //Don't do the usual tab-press action.
+					}
+					
+					if (isCancellation(e.keyCode))
+					{
+						rejectChanges(); //Get rid of the gray
+					}
+	        	}
+	        });
+	        
+	        
+	        text.addMouseListener(new MouseListener(){
+	
+				@Override
+				public void mouseDoubleClick(MouseEvent e) {
+					rejectChanges();
+				}
+	
+				@Override
+				public void mouseDown(MouseEvent e) {
+					rejectChanges();
+				}
+	
+				@Override
+				public void mouseUp(MouseEvent e) {
+					rejectChanges();
+				}
+	        	
+	        	
+	        });
+	      
+	        
+	        
+	        text.addKeyListener(new KeyListener(){
+	
+				@Override
+				public void keyPressed(KeyEvent e) {
+					
+					
+					if (e.keyCode == SWT.COMMAND || e.keyCode == SWT.CTRL){
+						command_down = true;
+					}
+	
+				}
+	
+				@Override
+				public void keyReleased(KeyEvent e) {
+					if (e.keyCode == SWT.COMMAND || e.keyCode == SWT.CTRL){
+						command_down = false;
 					}
 				}
-		);
-
-		
-
-		
-		//Code folding makes everything really annoying.  So we'll quick-fix everything by disabling it.
-		if(JavaPlugin.getDefault().getPreferenceStore().getBoolean(PreferenceConstants.EDITOR_FOLDING_ENABLED))
-		{
-			IAction action= getAction("FoldingToggle"); //$NON-NLS-1$
-			action.run();
-		}
-		
-		final IDocument doc = currentDocument();
-				
-		ISourceViewer viewer = getSourceViewer();
-				
-        final StyledText text = viewer.getTextWidget();
-        
-                
-        
-        styledText = text;
-       
-        
-        text.addVerifyListener(new VerifyListener(){
-        	public void verifyText(VerifyEvent event)
-        	{
-
-				if(SampleBuilder.builder.isPaused()){
-					
-					event.doit = false;
-					return;
-				}	
-				
-				try{
-					final Display display = PlatformUI.getWorkbench().getDisplay();
-
-					new Thread(
-							new Runnable(){
-								public void run(){
-									display.asyncExec(new Runnable() {
-										public void run(){
-											refactor(new SuperResource(getText(), currentFile().getName()),RefactoringEditor.this);
-										}
-									});
-								}
-							}
-					).start();
-				}catch(Exception e){
-					e.printStackTrace();
-				}
-				
-        	}
-        });
-        
-        
-        text.addVerifyKeyListener(new VerifyKeyListener(){
-        	public void verifyKey(VerifyEvent e)
-        	{
-				if ((e.keyCode == SWT.TAB || e.keyCode == SWT.CR) && grayRanges.size() > 0)
-				{
-					confirmChanges(); //Get rid of the gray
-
-					e.doit = false;   //Don't do the usual tab-press action.
-				}
-				
-				if (isCancellation(e.keyCode))
-				{
-					rejectChanges(); //Get rid of the gray
-				}
-        	}
-        });
-        
-        
-        text.addMouseListener(new MouseListener(){
-
-			@Override
-			public void mouseDoubleClick(MouseEvent e) {
-				rejectChanges();
-			}
-
-			@Override
-			public void mouseDown(MouseEvent e) {
-				rejectChanges();
-			}
-
-			@Override
-			public void mouseUp(MouseEvent e) {
-				rejectChanges();
-			}
-        	
-        	
-        });
-      
-        
-        
-        text.addKeyListener(new KeyListener(){
-
-			@Override
-			public void keyPressed(KeyEvent e) {
-				
-				
-				if (e.keyCode == SWT.COMMAND || e.keyCode == SWT.CTRL){
-					command_down = true;
-				}
-
-			}
-
-			@Override
-			public void keyReleased(KeyEvent e) {
-				if (e.keyCode == SWT.COMMAND || e.keyCode == SWT.CTRL){
-					command_down = false;
-				}
-			}
-        	
-        	
-        });
-
-
-        
-
-		IOperationHistory o = OperationHistoryFactory.getOperationHistory();
-		o.addOperationHistoryListener(new IOperationHistoryListener(){
-
-			@Override
-			public void historyNotification(OperationHistoryEvent event) {
-				
-				if(event.getEventType() == OperationHistoryEvent.UNDONE && command_down)
-				{
-					reset();
-				}		
-				
-			}
-		});
-		
-
-		
-	}
+	        	
+	        	
+	        });
 	
+	
+	        
+	
+			IOperationHistory o = OperationHistoryFactory.getOperationHistory();
+			o.addOperationHistoryListener(new IOperationHistoryListener(){
+	
+				@Override
+				public void historyNotification(OperationHistoryEvent event) {
+					
+					if(event.getEventType() == OperationHistoryEvent.UNDONE && command_down)
+					{
+						reset();
+					}		
+					
+				}
+			});
+			
+
+		} catch (Exception e){
+			e.printStackTrace();
+		}
+	}
 
 
 	
@@ -278,72 +270,40 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	
 
 
-	private void refactor(final SuperResource resource, final IEditorPart editor)
+	private void refactor(final List<CompilerMessage> messages, final IEditorPart editor)
 	{
-		builder.checkChanges(resource);
+		
+		try{
+			final Display display = PlatformUI.getWorkbench().getDisplay();
 
-		/*
-		editor.doSave(
+			new Thread(
+					new Runnable(){
+						public void run(){
+							display.asyncExec(new Runnable() {
+								public void run(){
 
-				new IProgressMonitor(){
-
-					@Override
-					public void beginTask(String name, int totalWork) {
-						// TODO Auto-generated method stub
-						
+									SuperResource super_resource = new SuperResource(getText(), currentFile().getName());
+									super_resource.setCompilerMessages(messages);
+									
+									builder.checkChanges(super_resource);
+									
+								}
+							});
+						}
 					}
-
-					@Override
-					public void done() {
-						builder.checkChanges(resource);
-					}
-
-					@Override
-					public void internalWorked(double work) {
-						
-					}
-
-					@Override
-					public boolean isCanceled() {
-						// TODO Auto-generated method stub
-						return false;
-					}
-
-					@Override
-					public void setCanceled(boolean value) {
-						// TODO Auto-generated method stub
-						
-					}
-
-					@Override
-					public void setTaskName(String name) {
-						// TODO Auto-generated method stub
-						
-					}
-
-					@Override
-					public void subTask(String name) {
-						// TODO Auto-generated method stub
-						
-					}
-
-					@Override
-					public void worked(int work) {
-						// TODO Auto-generated method stub
-						
-					}
-					
-					
-				}
-		);
-		*/
-		//file.setContents(new ByteArrayInputStream(doc.get().getBytes()),true,false,null);
+			).start();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
 
 	}
 	
 	
 	public static String getText(){
-		return styledText.getText();
+		if(styledText != null)
+			return styledText.getText();
+		else
+			return null;
 	}
 
 	
@@ -495,33 +455,94 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		
 
 	}
-
-	public List<CompilerMessage> getProblemsIn(IResource resource) {
+	
+	private List<CompilerMessage> getCompilerMessages(IAnnotationModel model)
+	{
+		int offset = 0;
+		int length = currentDocument().get().length();
 		
-		IMarker[] markers = null;
-		try {
-			markers = resource.findMarkers(null,true,IResource.DEPTH_ZERO);
-		} catch (CoreException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		Iterator parent;
+		if (model instanceof IAnnotationModelExtension2)
+			parent= ((IAnnotationModelExtension2)model).getAnnotationIterator(offset, length, true, true);
+		else
+			parent= model.getAnnotationIterator();
+
+		Iterator e= new JavaAnnotationIterator(parent, false);
+		
+		List<CompilerMessage> messages = new ArrayList<CompilerMessage>();
+		
+		while (e.hasNext()) {
+			Annotation annotation= (Annotation) e.next();
+			Position p= model.getPosition(annotation);
+			if (p != null && p.overlapsWith(offset,length))
+			{
+				String message = "";
+				if (annotation instanceof IJavaAnnotation && ((IJavaAnnotation) annotation).isProblem() && !annotation.getType().equals("org.eclipse.ui.workbench.texteditor.spelling"))
+				{
+					messages.add(new CompilerMessage(annotation, p.getOffset(), p.getLength()));
+				}
 				
-		List<CompilerMessage> ret = new ArrayList<CompilerMessage>();
-		
-		for(IMarker p : markers)
-		{
-			try {
-				Map m = p.getAttributes();
-
-				ret.add(new CompilerMessage(p));
-			} catch (CoreException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
 		}
 		
-		return ret;
-		
+		return messages;
+	}
+	
+	private List<CompilerMessage> getCompilerMessages()
+	{
+		IAnnotationModel model= getDocumentProvider().getAnnotationModel(getEditorInput());
+		return getCompilerMessages(model);
 	}
 
+	public SuperResource getCurrentSuperResource() {
+		SuperResource r = new SuperResource(getText(),currentFile().getName());
+		
+		r.setCompilerMessages(getCompilerMessages());
+		
+		return r;
+	}
+
+	public String getCurrentDocumentName() {
+		return currentFile().getName();
+	}
+
+	public void pause(){
+		if(is_paused)
+			return;
+		
+		is_paused = true;
+		
+		builder.pause();
+		noDraw();
+	}
+	
+	public void unpause(){
+		if(!is_paused)
+			return;
+		
+		is_paused = false;
+		
+		builder.unpause();
+		doDraw();
+	}
+	
+	public void doDraw()
+	{
+		if(!is_drawing_paused)
+			return;
+		
+		is_drawing_paused = false;
+		styledText.setRedraw(true);
+	}
+	
+	public void noDraw()
+	{
+		if(is_drawing_paused)
+			return;
+		
+		is_drawing_paused = true;
+		styledText.setRedraw(false);
+	}
+	
+	
 }

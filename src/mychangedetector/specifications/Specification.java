@@ -1,9 +1,9 @@
 package mychangedetector.specifications;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import mychangedetector.builder.CompilerMessage;
 import mychangedetector.change_management.ChangeWrapper;
 import mychangedetector.matching.constraints.MethodExtractionConstraint;
 import mychangedetector.matching.constraints.NotEqualConstraint;
@@ -12,41 +12,80 @@ import mychangedetector.matching.constraints.VariableRenamedConstraint;
 import mychangedetector.specification.requirements.MethCall;
 import mychangedetector.specification.requirements.NameChange;
 import mychangedetector.specification.requirements.Statement;
+import mychangedetector.specification.requirements.StatementWithCompilerMessage;
 import mychangedetector.specification.requirements.UpdateMethod;
 import mychangedetector.specification.requirements.UpdateStatement;
 
 import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.internal.ui.text.correction.AssistContext;
+import org.eclipse.jdt.internal.ui.text.correction.JavaCorrectionProcessor;
+import org.eclipse.jdt.internal.ui.text.correction.ProblemLocation;
+import org.eclipse.jdt.internal.ui.text.correction.UnresolvedElementsSubProcessor;
+import org.eclipse.jdt.ui.SharedASTProvider;
+import org.eclipse.jdt.ui.text.java.IInvocationContext;
+import org.eclipse.jdt.ui.text.java.IProblemLocation;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.IRewriteTarget;
+import org.eclipse.jface.text.ITextViewer;
+import org.eclipse.jface.text.ITextViewerExtension;
+import org.eclipse.jface.text.contentassist.ICompletionProposal;
+import org.eclipse.jface.text.contentassist.ICompletionProposalExtension;
+import org.eclipse.jface.text.contentassist.ICompletionProposalExtension2;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Point;
 
    
 /* 
  * Next steps:
  * 
+ * 		
+ * 		
+ * 		Rename isn't setting the cursor position correctly in linked mode when you change the second instnace of a var.
+ * 			I'm using a Position -- which helps a little bit.
+ * 				But it's still wonky when you mess with the middle or beginning of a variable.
+ * 				And it's important because it solves the problem below also -- keystrokes that happen in mid refactoring go (in general) to the right place.
  * 
- * 	  Expand the model to include complier errors (so we can do transformations like adding try/catch):
+ * 		
+ * 		Once the above is done, need to get back to writing test code.  Don't want to get sidetracked with issues that aren't super-critical.
+ * 		Write MergeSort.  Find more bugs.  Kill them.
+ * 
+ * 
+ * 		I'm still worried that changes which arrive in mid-refactoring will screw things up.  Might need to lock the document again...
+ * 			Actually.  We might be able to get away with cleverly placing the cursor, so that changes end up the right place.
+ * 				(Extract method should not end with the method call selected.)
+ * 			Looks like this will work for extract variable too -- once we fix the rename bug above.
+ * 			Hmmm.  Maybe not though.... when you type REALLY fast it messes up.  We'll have to see how annoying this is in practice.
+ * 				It might be something we can ignore -- as long as we can get the cursor positioning right -- which helps with 90% of hte issue.
+ * 
+ * 
+ * 
+ * 
+ * 		Extract variable has a gray-out bug.  The gray continues to the next line.  I assume this is because of the way we're doing diffs.
+ * 
+ * 		Extract Variable might be a bit too aggressive.
+ * 	
+ * 		Might need an inverse to rollback(), in the event that stuff fails.
+ * 			-- In most cases, we can use the UndoEdit that ASTRewrite produces.
+ * 
+ *  	Some bugs:
+ *  		If the user rejects the change, the tool needs to stop asking (i.e. try/catch)
+ * 
+ * 		Wow.  Try/catch completion is working.
+ * 			Now...
+ * 				3) The gray color doesn't "stick" on some key words -- but maybe we can ignore that for a while.
+ * 				5) We could now potentially use the expanded model to check that Extract Method involves a non-existent method -- thus avoiding the refactoring, which for some reason duplicates the method.
+ *    
+ * 
+ * 
+ * 	  The Executor stuff needs to be on the refactoring chopping block soon.  It's confusing to think about how all the call backs and document change listeners are interacting.  Eclipse probably has a better way.  Look into batched runnables?
+ * 			With the try/catch executor, it became clear that we don't always want to roll back.  It was hard to make the new executor.  There was lots of cut and paste.  The code looks ugly.  And I forgot to set old_string, which broke the gray-diff process.
+ * 			Since we make an executor every time we make a new refactoring, it should be as easy as possible.  We'll be making a lot of them.
+ * 
  *
- * 	  SampleBuilder (and eventually SimpleDifferencer) should be using SuperResource anywhere that they are currently using IResource.
- * 			I THINK that all references to IResource have been replaced with SuperResource -- speeding things up noticeably and paving the way for...	
- * 
- * 			Reinstate problem detector: It appears to be calling refactoring infinitely.
- * 			Then, we should figure out a way to do diffs on the CompilerMessages too.
- * 			When that's done, we need to allow the change matchers to match AST nodes based on associated compiler messages (which will probably be saved as properties in the AST node).
+ *
  * 			
  *     
  *    Add in new refactorings...
- *     
- *     		Adding unimplemented methods and try/catch blocks would be ridiculously useful.\
- *     		I know they're not "refactorings", but I think they should be the first things we add.
- *     			The try/catch would be a good example of a refactoring where you'd cycle through multiple options: You might want the try/catch block to surround the current statement, or its parent block, and so on.  Or you might want to add a throws declaration.		
- *            		
- *            	-- We could detect the compilation error at a line and surround to catch the unhandled error.
- *     			
- *     			The trouble is: How do we incorporate compiler warnings into the current model?  They aren't attributes of the document.  
- *     				When the user makes a change, the compiler warnings arrive significantly later.
- *     				Maybe we need to pretend that the compiler warning addition is a change to the document.
- *     					If we can detect when they arrive, then we can do a diff and decorate it (and/or the relevant ASTNodes) with the new vs. the old warnings (a "warning diff" -- if you will)
- *     
- *     					Where's the hook for detecting warnings, though?  I've looked and never found it.
- *     
  *     
  *     
  *     As another extension of the model, it would be nice to incorporate the location of the cursor.
@@ -62,21 +101,6 @@ import org.eclipse.jdt.core.dom.ASTNode;
  *     
  *     
  *     
- *     
- *     Holy fuck, Extract Method is working!  
- *
- *	   Extract expression is working well too.
- *			The current problem crops up when you try to do two ExtractExpression refactorings at once.
- *			Part of the problem is the rollback.
- *				This might be a good opportunity to explore doing something more intelligent (local) with the roll back -- i.e. don't roll back the entire document, just the place where the change is happening.
- *				Then again, this may not work with complex refactorings like Extract Method.
- *
- *			The easy fix is to just disallow simultaneous refactorings...
- *				We reenabled it to deal with non-parsable states.
- *				But we can safely drop in-flight refactorings whenever a new one takes flight.
- *
- *
- *
  *
  *     
  *     
@@ -88,11 +112,7 @@ import org.eclipse.jdt.core.dom.ASTNode;
  *     
  *     		Make extract var work in reverse.  Detect when a variable is introduced and defined in a way that matches an expression nearby.
  *     			(Should just be a challenge related to research -- not to Eclipse crap.  We can use the same executor.  Yay.)
- * 
- *     
- *     		Fix up extract method.  It kind of sucks.  It should handle passing in local variables with more appropriate triggers.
- *     			(This'll probably come together as I start using the tool for development.)
- *     
+ *      
  *          Multi-file refactorings -- push up / pull down method.  Change method signature.
  *          
  *          Local var to field.
@@ -100,7 +120,6 @@ import org.eclipse.jdt.core.dom.ASTNode;
  *          Anonymous class to nested.
  *     
  *     
- *     To speed things up.  Maybe we can avoid saving the file each time we check for changes -- just keep strings as checkpoints instead of ifiles.
  *     
  *     What are some good ways to demo this tool?  Are there any canonical programs that we can write and show that the process is easier with the tool?
  *     Is there some way to examine a program and determine whether it would have benefitted from having been written with the help of the tool? (That's crazy, I know.  But it's worth writing down all ideas -- even the "out there" ones.)
@@ -130,12 +149,15 @@ public class Specification implements Cloneable {
 	}
 	
 	public boolean tryExecute(){
+		
+		
 		if(exec.isReadyToExecute())
 		{
 			exec.execute();
 			has_executed = true;
 			return true;
 		}
+		
 		return false;
 	}
 	
@@ -182,7 +204,7 @@ public class Specification implements Cloneable {
 			copy.addConstraint(c.copy());
 		}
 		
-		copy.addExecutor((Executor)exec.copy(copy));
+		Specification.addExecutor(copy, (Executor)exec.copy(copy));
 		
 		return copy;
 	}
@@ -279,9 +301,7 @@ public class Specification implements Cloneable {
 		extract_variable.addRequirement(updated_statement);
 		
 		extract_variable.addConstraint(new VariableExtractionConstraint("old_statement","new_statement", "variable_name", "extracted_expression"));
-		
-		//extract_variable.addConstraint(new SameLocation("old_statement","new_statement"));
-		
+				
 		/**
 		 * Case 2:
 		 *  
@@ -329,7 +349,7 @@ public class Specification implements Cloneable {
 		
 		EclipseExtractVariableExecutor executor = new EclipseExtractVariableExecutor();
 		executor.setSpecification(new SpecificationAdapter(extract_variable));
-		extract_variable.addExecutor(executor);
+		Specification.addExecutor(extract_variable, executor);
 		
 		//Temporary
 		//extract_variable.addExecutor(new NoopExecutor(new SpecificationAdapter(extract_variable)));
@@ -347,7 +367,7 @@ public class Specification implements Cloneable {
 		rename.addRequirement(nameChange);
 		rename.addConstraint(new NotEqualConstraint("old_name","new_name"));
 		rename.addConstraint(new VariableRenamedConstraint("old_name","new_name"));
-		rename.addExecutor(new EclipseRenameExecutor(new SpecificationAdapter(rename)));
+		Specification.addExecutor(rename, new EclipseRenameExecutor(new SpecificationAdapter(rename)));
 		
 		return rename;
 	}
@@ -360,10 +380,10 @@ public class Specification implements Cloneable {
 		UpdateMethod updated_method = new UpdateMethod("old_method","new_method");
 
 		
-		//Now we want to detect the introduction of a method call.  What ever was deleted in between must be the extracted lines.
+		//Now we want to detect the introduction of a method call.  Whatever was deleted in between must be the extracted lines.
 		MethCall change_to_method_call = new MethCall("UPDATE","method_call");
 		
-		//Now we want to detect the introduction of a method call.  What ever was deleted in between must be the extracted lines.
+		//Now we want to detect the introduction of a method call.  Whatever was deleted in between must be the extracted lines.
 		MethCall insert_new_method_call = new MethCall("INSERT","method_call");
 		
 		extract.addRequirement(updated_method);
@@ -377,14 +397,36 @@ public class Specification implements Cloneable {
 		extract.addConstraint(new MethodExtractionConstraint("method_call","hook_statement"));  //Bonus points if this works in both directions.
 		
 	
-		extract.addExecutor(new EclipseExtractMethodExecutor(new ExtractMethodSpecificationAdapter(extract)));
+		Specification.addExecutor(extract, new EclipseExtractMethodExecutor(new ExtractMethodSpecificationAdapter(extract)));
 		
 		return extract; 
+	}
+	
+	public static Specification newTryCatchSpecification()
+	{
+		Specification try_catch = new Specification("Try/Catch Complete");
+		
+		StatementWithCompilerMessage statement = new StatementWithCompilerMessage("INSERT", "error_statement", CompilerMessage.UNHANDLED_EXCEPTION);
+		try_catch.addRequirement(statement);
+		
+		statement = new StatementWithCompilerMessage("UPDATE", "error_statement", CompilerMessage.UNHANDLED_EXCEPTION);
+		try_catch.addRequirement(statement);
+
+		TryCatchCompleteExecutor executor = new TryCatchCompleteExecutor();
+		executor.setSpecification(new SpecificationAdapter(try_catch));
+		Specification.addExecutor(try_catch, executor);
+
+		
+		return try_catch;
+	}
+
+	public static void addExecutor(Specification specification, Executor e) {
+		specification.addExecutor(e);
 	}
 
 	public List<FreeVar> getPropertiesByRegex(String regex) {
 		List<FreeVar> ret = new ArrayList<FreeVar>(); 
-		
+				
 		for(FreeVar var : getBindings())
 		{
 			if(var.name().matches(regex))
@@ -518,6 +560,13 @@ public class Specification implements Cloneable {
  *          
  *          Turns out I was right: Dumber diffs appear to be better for real-time refactoring.
  *          	(I'm just splitting on semi-colons to detect change areas.  Only extracting type information later.
+ *          
+ *          
+ *          On a related note: We introduce greater and greater semantic awareness as the tool progresses.
+ *          	1) First, we detect any kind of action that MIGHT change the document.  (The simplest kind of change detection there is.)
+ *          	2) Then, we do a "dumb" diff on the text of the document.  (Slightly more semantic awareness).
+ *          	3) Then, we get the relevant ASTNodes, if we can.
+ *          	4) Then, we use Specifications to combine isolated changes into a larger story -- one that involves the user's edits over time.
  * 
  *     
  *     
@@ -529,6 +578,86 @@ public class Specification implements Cloneable {
  * 			After:
  * 				We try to match the first and last requirement (removing one statement, adding a method call).
  * 				The tool is able to infer the rest of the information (i.e. the other removed statements).
+ * 
+ * 
+ *    The model now includes more than just changes to the text of the document.  It also includes the compiler errors -- which is pretty cool, and I think definitely worth writing about.
+ *    
+ *    
+ *    By way of justification for this kind of paradigm: The built-in refactorings are a little bit arbitrary in how they're triggered.  "Place the caret inside the anonymous class" for Anonymous Class to Nested.  Weird.  Why can't I highlight it?  There are other examples too.
+ *      For Encapsulate Field, you have to select the field NAME, not the whole declaration.  Annoying popus are the result.  They tell you that you didn't use the interface correctly.  Thus, not only must the
+ *      user be aware of the available refactorings, they must also trigger them correctly.  This constitutes more training, and exposes the disconnect between the tool suite and the user's intention.
+ *      It's worth stating in the paper that, fundamentally, the present interface and mine are really subsets of the same idea: The user interfaces with a collection of triggerable tools.
+ *      
+ *    Even more compelling, however, is the fact that the growing suite of tools creates new problems.  Already, there are too many refactorings in eclipse.  There need to be more.  Add in the number of templates.  Wowzers.  
+ *     
+ *    Other reasons?
+ *      
+ *      
+ *    Possible paper story:
+ *    
+ *    Every new tool that ships with Eclipse makes the Radical Minimalist more and more antiquated and makes the Tool Cyborg more and more mythical.
+ *    		It's more stuff that the Radical Minimalist doesn't benefit from.
+ *    		It's more stuff that the Tool Cyborg must remember.
+ *    		For The Average Programmer, they are doubly abused.  If they choose not to use it... See Radical Minimalist above.  If they chose to remember it... See Tool Cyborg above.
+ *      	It's a sad state of affairs when the very advancement of the state of the art actually creates new problems
+ *      		A new interface can help.
+ *      
+ *      
+ *    Subtle problem that I'm not going to fix, but which is possibly worth mentioning:
+ *    	The Rename changes the name of the file, so the checkpoint name is invalidated.  This causes a hickup where the tool won't "catch" after the first character after a Rename.  
+ *  * 		Would like to do new method completion suggestion.  Looks like too much trouble at the moment.
+ *         But here are some things I've found.  
+ * 		
+ * 				JavaCorrectionProcessor.collectCorrections(context, new IProblemLocation[] { location }, proposals);
+ * 	
+ * 					Where...
+ * 
+ * 				ArrayList proposals= new ArrayList();
+ * 				IInvocationContext context= new AssistContext(cu, sourceViewer, location.getOffset(), location.getLength(), SharedASTProvider.WAIT_ACTIVE_ONLY);
+ * 				ProblemLocation location= new ProblemLocation(position.getOffset(), position.getLength(), javaAnnotation);
+
+				And to apply a proposal:
+				
+						private void apply(ICompletionProposal p, ITextViewer viewer, int offset, boolean isMultiFix) {
+			//Focus needs to be in the text viewer, otherwise linked mode does not work
+			dispose();
+
+			IRewriteTarget target= null;
+			try {
+				IDocument document= viewer.getDocument();
+
+				if (viewer instanceof ITextViewerExtension) {
+					ITextViewerExtension extension= (ITextViewerExtension) viewer;
+					target= extension.getRewriteTarget();
+				}
+
+				if (target != null)
+					target.beginCompoundChange();
+
+				if (p instanceof ICompletionProposalExtension2) {
+					ICompletionProposalExtension2 e= (ICompletionProposalExtension2) p;
+					e.apply(viewer, (char) 0, isMultiFix ? SWT.CONTROL : SWT.NONE, offset);
+				} else if (p instanceof ICompletionProposalExtension) {
+					ICompletionProposalExtension e= (ICompletionProposalExtension) p;
+					e.apply(document, (char) 0, offset);
+				} else {
+					p.apply(document);
+				}
+
+				Point selection= p.getSelection(document);
+				if (selection != null) {
+					viewer.setSelectedRange(selection.x, selection.y);
+					viewer.revealRange(selection.x, selection.y);
+				}
+			} finally {
+				if (target != null)
+					target.endCompoundChange();
+			}
+		}
+ *
+ *
+ *
+ *
  */
 
 

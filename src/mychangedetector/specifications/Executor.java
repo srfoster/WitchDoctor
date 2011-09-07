@@ -15,7 +15,6 @@ import java.util.regex.Pattern;
 
 import mychangedetector.builder.SampleBuilder;
 import mychangedetector.builder.SuperResource;
-import mychangedetector.copyclasses.MyRenameLinkedMode;
 import mychangedetector.editors.RefactoringEditor;
 
 import org.eclipse.core.commands.ExecutionException;
@@ -24,11 +23,10 @@ import org.eclipse.core.commands.operations.IUndoableOperation;
 import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.core.internal.commands.operations.GlobalUndoContext;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IWorkspaceRunnable;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.jdt.internal.ui.JavaPlugin;
 import org.eclipse.jdt.internal.ui.javaeditor.CompilationUnitEditor;
 import org.eclipse.jdt.internal.ui.javaeditor.JavaEditor;
-import org.eclipse.jdt.internal.ui.refactoring.reorg.RenameLinkedMode;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
@@ -111,9 +109,9 @@ public abstract class Executor implements Cloneable {
 	public void execute() {
 		already_executed = true;
 
-		final String class_name = specification.getCheckpointName();
+		final String class_name = RefactoringEditor.refactoringEditor.getCurrentDocumentName();
 
-		final SuperResource backup = RefactoringEditor.refactoringEditor.getBuilder().getOriginal(class_name + ".java");
+		//final SuperResource backup = RefactoringEditor.refactoringEditor.getBuilder().getOriginal(class_name);
 		
 		final IFile file = RefactoringEditor.refactoringEditor.currentFile();
 			
@@ -126,7 +124,6 @@ public abstract class Executor implements Cloneable {
 		
 		final Display display = PlatformUI.getWorkbench().getDisplay();;
 
-		SampleBuilder.pause();
 
 
 		display.asyncExec(new Runnable() {
@@ -143,70 +140,25 @@ public abstract class Executor implements Cloneable {
 				final IDocument doc = dp.getDocument(editor.getEditorInput());
 
 				old_string = RefactoringEditor.getText();
-
 				
 				try {
-					final String backup_text = backup.getContents();
-					//doc.set(backup_text);
-					
-					IOperationHistory o = OperationHistoryFactory.getOperationHistory();
-				//	IUndoableOperation[] undos = o.getUndoHistory(new GlobalUndoContext());
+					RefactoringEditor.refactoringEditor.pause();
 
-					
-					String current_text = RefactoringEditor.getText();
-					
-					while(!current_text.equals(backup_text))
-					{
-						try {
-							IUndoableOperation undoOp = o.getUndoOperation(new GlobalUndoContext());
-							wasUndone.add(undoOp);
-							
-							
-							String parse_me = undoOp.toString();
-							
-							Pattern p = Pattern.compile("start: (-*\\d+)"); 
-							Matcher m = p.matcher(parse_me);
-							boolean b = m.find();
-
-							int start = Integer.parseInt(m.group(1));
-							
-							Position change_position = null;
-							
-							if(start > 0)
-							{
-								change_position = new Position(start,0);
-								
-								try {
-									doc.addPosition(change_position);
-								} catch (BadLocationException e1) {
-									// TODO Auto-generated catch block
-									e1.printStackTrace();
-								}
-							}
-							
-							IStatus s = o.undo(new GlobalUndoContext(),null,null);
-							
-							if(start > 0)
-							{
-								int updated_start_position = change_position.getOffset();
-								TextSelection t = new TextSelection(doc, updated_start_position, 0);	
-								((JavaEditor) editor).getSelectionProvider().setSelection(t);	
-							}
-							
-
-						} catch (ExecutionException e) {
-							e.printStackTrace();
-						} 
-						current_text = doc.get();
-					}
-					
+					rollback(editor, doc);
 
 					display.asyncExec(new Runnable() {
 						public void run(){
-							afterRollback(editor, doc);
+							try{
+								afterRollback(editor, doc);
+							} catch (Exception e) {
+								e.printStackTrace();
+								resetCheckpoints(doc);
+							}
 						}
 					});
-				
+				} catch(Exception e){
+					e.printStackTrace();
+					resetCheckpoints(doc);
 				} finally {
 					
 				}
@@ -295,12 +247,16 @@ public abstract class Executor implements Cloneable {
 	
 	//Errr... Do we need start_position here??
 	protected void rollForward(IDocument document, IEditorPart editor, int start_position){
-		RenameLinkedMode activeLinkedMode= MyRenameLinkedMode.getActiveLinkedMode();
 
+		//Clear any current selection
 		
-		IOperationHistory history = OperationHistoryFactory.getOperationHistory();
+		TextSelection current_selection = (TextSelection) ((JavaEditor) editor).getSelectionProvider().getSelection();
+		
+		TextSelection new_selection = new TextSelection(document, current_selection.getOffset() + current_selection.getLength(), 0);		
 
-
+		((JavaEditor) editor).getSelectionProvider().setSelection(new_selection);
+		
+		//Undo stuff
 		
 		for(IUndoableOperation op : wasUndone)
 		{
@@ -379,11 +335,15 @@ public abstract class Executor implements Cloneable {
 		
 		wasUndone = new ArrayList<IUndoableOperation>();
 	}
+
+
+	protected abstract void rollback(final IEditorPart editor,
+			final IDocument doc);
+
 	
 	
 	public List<String> stringToLines(String string){
 		return new ArrayList<String>(Arrays.asList(string.split("\\s")));
 	}
-
 
 }

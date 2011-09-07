@@ -60,18 +60,16 @@ public class ChangeSet implements Set {
 		ASTNode full_tree_before = parser2.createAST(null);
 		
 		
-
-		
 		for(Diff change : list){
 			ChangeWrapper wrapper = new ChangeWrapper(change,full_tree_before, full_tree_after);
 			
 			ASTNode main_node = getASTNode(change);
-			wrapper.addASTNode(main_node);
+			wrapper.setNode(main_node);
 			
 			if(change.isUpdate())
 			{
 				ASTNode updated = getUpdatedASTNode(change);
-				wrapper.addASTNode(updated);
+				wrapper.setUpdatedNode(updated);
 			}
 									
 			wrappers.add(wrapper);
@@ -182,6 +180,11 @@ public class ChangeSet implements Set {
         		int length = range.getLength();
         		int start = offset; 
         		int end   = length + offset;
+        		
+        		if(end > file.length())
+        		{
+        			end = file.length();
+        		}
         		
         		String value = file.substring(start, end);
         		

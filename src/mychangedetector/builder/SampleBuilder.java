@@ -1,7 +1,6 @@
 package mychangedetector.builder;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -16,15 +15,13 @@ import mychangedetector.change_management.ChangeStream;
 import mychangedetector.differencer.Diff;
 import mychangedetector.differencer.Differencer;
 import mychangedetector.differencer.simple_differencer.SimpleDifferencer;
+import mychangedetector.editors.RefactoringEditor;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
-import org.eclipse.core.resources.IResourceDelta;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.Path;
 
 
 /**
@@ -37,7 +34,7 @@ import org.eclipse.core.runtime.Path;
 public class SampleBuilder {
 	
 	
-	SuperResource right, left;
+	SuperResource right;
 	
 	ChangeStream stream = new ChangeStream();
 	
@@ -49,7 +46,7 @@ public class SampleBuilder {
 	
 	
 	private Map<String, SuperResource> checkpoints = new HashMap<String,SuperResource>();
-	private Map<String, SuperResource> originals = new HashMap<String,SuperResource>();
+	//private Map<String, SuperResource> originals = new HashMap<String,SuperResource>();
 
 	
 	
@@ -59,14 +56,12 @@ public class SampleBuilder {
 		
 	}
 
-	public static void pause(){
+	public void pause(){
 		no_build = true;
 	}
 	
-	public static void unpause(){
-		
+	public void unpause(){
 		no_build = false;
-
 	}
 	
 	public boolean isPaused()
@@ -77,13 +72,15 @@ public class SampleBuilder {
 
 
 	public void resetCheckpoints(String text){
-		originals = new HashMap<String,SuperResource>();
+	//	originals = new HashMap<String,SuperResource>();
 		checkpoints = new HashMap<String, SuperResource>();
 		
-		originals.put(right.getName(),new SuperResource(text,right.getName()));
+	//	originals.put(right.getName(),RefactoringEditor.refactoringEditor.getCurrentSuperResource());
+		checkpoints.put(right.getName(),RefactoringEditor.refactoringEditor.getCurrentSuperResource());
+
 		
 	   	stream.clear();
-	   	unpause();
+	   	RefactoringEditor.refactoringEditor.unpause();
 	}
 	
 
@@ -94,44 +91,39 @@ public class SampleBuilder {
 
 
 	public void checkChanges(SuperResource super_resource) {
-		
-		
 		if(no_build)
 			return;
 		
         right = super_resource;
         String name = right.getName();
-        left = checkpoints.get(name);
-
+        SuperResource left = checkpoints.get(name);
+          
         if(left == null)
         {
-        	left = originals.get(right.getName());
-        	if(left != null)
-        		checkpoints.put(right.getName(),left);
-        }
-        
-  
-        if(left == null)
-        {
-        	SuperResource new_resource =  new SuperResource(right.getContents(),right.getName());
+        	SuperResource new_resource = new SuperResource(right.getContents(),right.getName());
         	
         	checkpoints.put(right.getName(), new_resource);
         	left = new_resource;
         }
         
+    	String left_contents = left.getContents();
+    	String right_contents = right.getContents();
+        
 
 		Differencer diff = new SimpleDifferencer();
 		List<Diff> list = diff.perform(left,right);
 
+		
+		
         if(list != null)
         {
-        	String left_contents = left.getContents();
-        	String right_contents = right.getContents();
+
 		
-			
 	        stream.addSet(list, new FileVersion(left.getName(), left_contents), new FileVersion(right.getName(), right_contents));
 	        stream.print();
-			
+	        
+        	SuperResource new_resource =  new SuperResource(right.getContents(),right.getName());
+        	checkpoints.put(right.getName(), new_resource);
         } else {
         	System.out.println("List was null.");
         }
@@ -141,12 +133,14 @@ public class SampleBuilder {
 	
 	
 	public void setUp(SuperResource superResource) {
-		originals.put(superResource.getName(),superResource);
+		//originals.put(superResource.getName(),superResource);
 	}
 
+	/*
 	public SuperResource getOriginal(String string) {
 		return originals.get(string);
 	}
+	*/
 
 	
 	

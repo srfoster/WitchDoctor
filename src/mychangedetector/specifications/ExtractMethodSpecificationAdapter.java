@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
@@ -156,12 +157,37 @@ public class ExtractMethodSpecificationAdapter extends SpecificationAdapter {
 	{
 		public FreeVar execute(SpecificationAdapter spec);
 	}
+	
+	public MethodInvocation getMethodInvocation()
+	{
+		FreeVar meth_name_var = getProperty("method_name");
+		if(meth_name_var == null)
+			return null;
+		
+		return (MethodInvocation) meth_name_var.binding().getParent();
+	}
 
 	public String getMethodName() {
 		FreeVar meth_name_var = getProperty("method_name");
 		if(meth_name_var == null)
 			return null;
 		return meth_name_var.binding().toString();
+	}
+	
+	public List<ASTNode> getRemovedStatements()
+	{
+		List<ASTNode> ret = new ArrayList<ASTNode>();
+		
+		FreeVar current_statement_var = getProperty("removed_statement_0");
+		int count = 1;
+		
+		do
+		{
+			ret.add(current_statement_var.binding());
+			current_statement_var = getProperty("removed_statement_"+count++);
+		} while(current_statement_var != null);
+
+		return ret;
 	}
 
 }

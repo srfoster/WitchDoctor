@@ -53,7 +53,6 @@ public class Statement extends Requirement {
 		
 	}
 
-
 	
 
 }

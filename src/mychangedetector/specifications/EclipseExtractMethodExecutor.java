@@ -2,24 +2,36 @@ package mychangedetector.specifications;
 
 import java.util.List;
 
-import mychangedetector.builder.SampleBuilder;
+import mychangedetector.builder.SuperResource;
 import mychangedetector.editors.RefactoringEditor;
 
-import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jdt.core.ICompilationUnit;
-import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.ImportDeclaration;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.jdt.core.dom.rewrite.ITrackedNodePosition;
+import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 import org.eclipse.jdt.internal.corext.refactoring.code.ExtractMethodRefactoring;
 import org.eclipse.jdt.internal.ui.javaeditor.EditorUtility;
+import org.eclipse.jdt.internal.ui.javaeditor.JavaEditor;
+import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.TextSelection;
 import org.eclipse.ltk.core.refactoring.Change;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
-import org.eclipse.swt.widgets.Display;
+import org.eclipse.text.edits.MalformedTreeException;
+import org.eclipse.text.edits.TextEdit;
+import org.eclipse.text.edits.UndoEdit;
 import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.PlatformUI;
 
 public class EclipseExtractMethodExecutor extends Executor {
 
@@ -46,10 +58,41 @@ public class EclipseExtractMethodExecutor extends Executor {
 		
 		return statement != null && method != null;
 	}
+	
+	@Override
+	protected void rollback(final IEditorPart editor,
+			final IDocument document) {
+		
+		
+		List<ASTNode> removed_statements = ((ExtractMethodSpecificationAdapter)getSpecification()).getRemovedStatements();
+	
+		MethodInvocation invocation = ((ExtractMethodSpecificationAdapter)getSpecification()).getMethodInvocation();
+		
+		ASTParser parser = ASTParser.newParser(AST.JLS3);
+		parser.setSource(document.get().toCharArray());
+		AST ast = invocation.getAST();
+		ASTRewrite rewriter = ASTRewrite.create(ast);
+
+		ASTNode statements = rewriter.createGroupNode(removed_statements.toArray(new ASTNode[]{}));
+		rewriter.replace(invocation.getParent(), statements, null);
+		 
+		 TextEdit edits = rewriter.rewriteAST(document, null);
+		 UndoEdit undo = null;
+		 try {
+		     undo = edits.apply(document);
+		 } catch(MalformedTreeException e) {
+		     e.printStackTrace();
+		 } catch(BadLocationException e) {
+		     e.printStackTrace();
+		 }
+
+		 
+		 
+	}
 
 	@Override
 	public void afterRollback(final IEditorPart editor, final IDocument doc) {
-
+		
 		String class_name = getSpecification().getCheckpointName();
   
     	ICompilationUnit i = (ICompilationUnit) EditorUtility.getEditorInputJavaElement(editor, true);
@@ -79,7 +122,9 @@ public class EclipseExtractMethodExecutor extends Executor {
     	
     	int length = end_position - start_position;
     	
-    	
+		TextSelection new_selection = new TextSelection(doc,start_position,length);
+		
+		((JavaEditor) editor).getSelectionProvider().setSelection(new_selection);
     	
 
     	ExtractMethodRefactoring refactoring = new ExtractMethodRefactoring(i, start_position, length);
@@ -89,7 +134,7 @@ public class EclipseExtractMethodExecutor extends Executor {
     	try {
     		RefactoringStatus status = refactoring.checkInitialConditions(new NullProgressMonitor());
     		System.out.println(status.toString());
-				Change change = refactoring.createChange(new NullProgressMonitor());
+			Change change = refactoring.createChange(new NullProgressMonitor());
 			
 
 		   try {
@@ -100,7 +145,7 @@ public class EclipseExtractMethodExecutor extends Executor {
 		     RefactoringStatus valid= change.isValid(new NullProgressMonitor());
 		     if (valid.hasFatalError())
 		         return;
-		     Change undo= change.perform(new IProgressMonitor(){
+		     	Change undo= change.perform(new IProgressMonitor(){
 
 				@Override
 				public void beginTask(String name, int totalWork) {

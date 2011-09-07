@@ -9,7 +9,7 @@ import mychangedetector.ast_helpers.ASTNodeDescriptor;
 import mychangedetector.ast_helpers.ZippingASTVisitor;
 import mychangedetector.change_management.ChangeWrapper;
 import mychangedetector.differencer.Diff;
-import mychangedetector.differencer.simple_differencer.SimpleDiffEntity;
+import mychangedetector.differencer.simple_differencer.SimpleTextDiffEntity;
 import mychangedetector.matching.MatchListener;
 import mychangedetector.matching.MatchingASTVisitor;
 import mychangedetector.matching.MyASTMatcher;
@@ -137,14 +137,19 @@ public class ChangeMatcher implements Cloneable {
 	
 	public void match(ASTNode node, String which_matcher)
 	{
-		if(which_matcher.equals("BEFORE")) {
-			matching_before = true;
-			node.accept(new MatchingASTVisitor(matcher, before_node_matcher));
-		} else if (which_matcher.equals("AFTER")) {
-			matching_before = false;
-			node.accept(new MatchingASTVisitor(matcher, after_node_matcher));
+		if(node != null)
+		{
+			if(which_matcher.equals("BEFORE")) {
+				matching_before = true;
+				node.accept(new MatchingASTVisitor(matcher, before_node_matcher));
+			} else if (which_matcher.equals("AFTER")) {
+				matching_before = false;
+				node.accept(new MatchingASTVisitor(matcher, after_node_matcher));
+			} else {
+				throw new RuntimeException("which_matcher should be 'BEFORE' or 'AFTER'");
+			}
 		} else {
-			throw new RuntimeException("which_matcher should be 'BEFORE' or 'AFTER'");
+			System.out.println("ASTNode was null...");
 		}
 	}
 	

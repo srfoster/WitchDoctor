@@ -162,6 +162,8 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 	 */
 	private IUndoableOperation fStartingUndoOperation;
 
+	private Object prohibitted_name;
+
 
 	public MyRenameLinkedMode(IJavaElement element, CompilationUnitEditor editor) {
 		super(element,editor);
@@ -338,11 +340,19 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 			}
 
 			String newName= fNamePosition.getContent();
-			if (fOriginalName.equals(newName))
+			if (fOriginalName.equals(newName) || newName.equals(prohibitted_name))
+			{
+				callback.run();
+
 				return;
+			}
 			RenameSupport renameSupport= undoAndCreateRenameSupport(newName);
 			if (renameSupport == null)
+			{
+				callback.run();
+
 				return;
+			}
 
 			Shell shell= fEditor.getSite().getShell();
 			boolean executed;
@@ -354,9 +364,6 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 			}
 			if (executed) {
 				restoreFullSelection();
-				
-				callback.run();
-				
 			}
 			JavaModelUtil.reconcile(getCompilationUnit());
 		} catch (CoreException ex) {
@@ -368,6 +375,8 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 		} catch (BadLocationException e) {
 			JavaPlugin.log(e);
 		} finally {
+			callback.run();
+
 			if (label != null)
 				label.dispose();
 			if (image != null)
@@ -380,6 +389,7 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 			fLinkedModeModel.exit(ILinkedModeListener.NONE);
 		}
 		linkedModeLeft();
+		
 	}
 
 	private void restoreFullSelection() {
@@ -636,6 +646,10 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 	
 	public static RenameLinkedMode getActiveLinkedMode(){
 			return fgActiveLinkedMode;
+	}
+
+	public void setProhibittedName(Object prohibitted_name) {
+		this.prohibitted_name = prohibitted_name;
 	}
 
 }

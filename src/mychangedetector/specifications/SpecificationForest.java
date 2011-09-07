@@ -28,6 +28,7 @@ public class SpecificationForest {
 	{
 		ArrayList<Specification> toAdd = new ArrayList<Specification>();
 		
+		boolean no_progress = true;
 		
 		boolean executed = false; 
 		for(Specification spec : specifications)
@@ -40,16 +41,18 @@ public class SpecificationForest {
 			}
 			
 			
-			if(!clone.equals(spec))
+			if(!specifications.contains(clone))
 			{
+				no_progress = false;
 				executed = clone.tryExecute();
+				toAdd.add(clone);
 			}
 			
-			toAdd.add(clone);
-
+			toAdd.add(spec);
+			
 		}
 		
-		if(executed)
+		if(executed) // || no_progress)
 			reset();
 		else
 			specifications = toAdd;

@@ -51,6 +51,10 @@ public class FreeVar implements Cloneable {
 		if(name().equals(other_var.name()) && binding() == null && other_var.binding() == null)
 			return true;
 		
+		if(binding() == null || other_var.binding() == null)
+			return false;
+		
+		
 		return name().equals(other_var.name()) && binding().subtreeMatch(new ASTMatcher(), other_var.binding());
 		
 	}

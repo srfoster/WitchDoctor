@@ -1,31 +1,61 @@
 package mychangedetector.builder;
 
+import java.util.Map;
+
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.jface.text.source.Annotation;
+import org.eclipse.jface.text.source.IAnnotationModel;
 
 public class CompilerMessage {
-	IMarker problem;
+	public static CompilerMessageType UNHANDLED_EXCEPTION = new CompilerMessageType(){
+		public boolean instanceOf(CompilerMessage m)
+		{
+			if(m == null)
+				return false;
+			boolean ret = m.getText().startsWith("Unhandled exception");
+			
+			
+			return ret;
+		}
+	};
 	
-	public CompilerMessage(IMarker problem)
+	Annotation problem;
+	int offset;
+	int length;
+	String message;
+	
+	public CompilerMessage()
 	{
-		this.problem = problem;
+		
+	}
+	
+	public CompilerMessage(Annotation annotation, int offset, int length)
+	{
+		this.problem = annotation;
+		this.offset = offset;
+		this.length = length;
+		this.message = annotation.getText();
 	}
 	
 	public int getOffset()
 	{
-		try {
-			return (Integer) problem.getAttribute(IMarker.CHAR_START);
-		} catch (CoreException e) {
-			return -1;
-		}
+		return offset;
 	}
 	
 	public int getLength()
 	{
-		try {
-			return (Integer) problem.getAttribute(IMarker.CHAR_END) - getOffset();
-		} catch (CoreException e) {
-			return -1;
-		}
+		return length;
 	}
+	
+	public String getText()
+	{
+		return problem.getText();
+	}
+	
+	public String toString()
+	{
+		return getText();
+	}
+	
 }

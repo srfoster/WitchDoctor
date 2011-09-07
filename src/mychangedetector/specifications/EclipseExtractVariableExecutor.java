@@ -1,5 +1,8 @@
 package mychangedetector.specifications;
 
+import java.util.List;
+
+import mychangedetector.builder.SuperResource;
 import mychangedetector.editors.RefactoringEditor;
 
 import org.eclipse.core.resources.IFile;
@@ -7,14 +10,22 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.internal.corext.refactoring.code.ExtractTempRefactoring;
 import org.eclipse.jdt.internal.ui.javaeditor.EditorUtility;
 import org.eclipse.jdt.internal.ui.javaeditor.JavaEditor;
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.TextSelection;
 import org.eclipse.ltk.core.refactoring.Change;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
+import org.eclipse.text.edits.MalformedTreeException;
+import org.eclipse.text.edits.TextEdit;
+import org.eclipse.text.edits.UndoEdit;
 import org.eclipse.ui.IEditorPart;
 
 public class EclipseExtractVariableExecutor extends Executor {
@@ -40,6 +51,32 @@ public class EclipseExtractVariableExecutor extends Executor {
 		extracted_expression = extracted_expression_var.binding();
 
 		return true;
+	}
+	
+	@Override
+	protected void rollback(final IEditorPart editor,
+			final IDocument document) {
+		
+		
+		ASTParser parser = ASTParser.newParser(AST.JLS3);
+		parser.setSource(document.get().toCharArray());
+		AST ast = variable_name.getAST();
+		ASTRewrite rewriter = ASTRewrite.create(ast);
+				
+		rewriter.replace(variable_name, extracted_expression, null);
+		 
+		 TextEdit edits = rewriter.rewriteAST(document, null);
+		 UndoEdit undo = null;
+		 try {
+		     undo = edits.apply(document);
+		 } catch(MalformedTreeException e) {
+		     e.printStackTrace();
+		 } catch(BadLocationException e) {
+		     e.printStackTrace();
+		 }
+
+		 
+		 
 	}
 
 	@Override

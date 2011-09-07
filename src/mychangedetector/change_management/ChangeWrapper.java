@@ -4,12 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import mychangedetector.differencer.Diff;
+import mychangedetector.differencer.simple_differencer.SimpleMessageDiff;
+import mychangedetector.differencer.simple_differencer.SimpleMessageDiffEntity;
 
 import org.eclipse.jdt.core.dom.ASTNode;
 
 public class ChangeWrapper {
 	Diff change;
-	List<ASTNode> relevant_nodes;
+	ASTNode node;         //May be the original or the revised node, depending on the change type.
+	ASTNode updated_node; //Only used for updates.
 	
 	ASTNode full_tree_before = null;
 	ASTNode full_tree_after  = null;
@@ -19,12 +22,32 @@ public class ChangeWrapper {
 		this.change = change;
 		this.full_tree_before = full_tree_before;
 		this.full_tree_after  = full_tree_after;
-		relevant_nodes = new ArrayList<ASTNode>();
 	}
 	
-	public void addASTNode(ASTNode node)
+	public void setNode(ASTNode node)
 	{
-		relevant_nodes.add(node);
+		if(node == null)
+			return; 
+		
+		this.node = node;
+		
+		if(change instanceof SimpleMessageDiff)
+		{
+			node.setProperty("compiler_message",((SimpleMessageDiffEntity)change.getChangedEntity()).getMessage());
+		}
+	}
+	
+	public void setUpdatedNode(ASTNode node)
+	{
+		if(node == null)
+			return; 
+		
+		this.updated_node = node;
+		
+		if(change instanceof SimpleMessageDiff)
+		{
+			node.setProperty("compiler_message",((SimpleMessageDiffEntity)change.getNewEntity()).getMessage());
+		}
 	}
 	
 	public String getChangeType()
@@ -46,7 +69,7 @@ public class ChangeWrapper {
 	
 	public ASTNode getNode()
 	{
-		return relevant_nodes.get(0);
+		return node;
 	}
 	
 	public ASTNode getUpdatedNode(){
@@ -55,7 +78,7 @@ public class ChangeWrapper {
 			return null;
 		}
 		
-		return relevant_nodes.get(1);
+		return updated_node;
 	}
 	
 	

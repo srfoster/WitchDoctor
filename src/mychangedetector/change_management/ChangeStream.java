@@ -13,11 +13,15 @@ import org.evolizer.changedistiller.model.entities.SourceCodeChange;
 public class ChangeStream {
 	
 	List<ChangeSet> list = new ArrayList<ChangeSet>();
+	int max_size = 10;
+	int min_size = 5;
 	
 	
 	Specification rename_detector = Specification.newRenameSpecification();
 	Specification extract_detector = Specification.newExtractMethodSpecification();
 	Specification extract_variable_detector = Specification.newExtractVariableSpecification();
+	Specification try_catch = Specification.newTryCatchSpecification();
+
 	
 	SpecificationForest spec_forest = new SpecificationForest();
 	
@@ -26,6 +30,7 @@ public class ChangeStream {
 		spec_forest.addSpecification(rename_detector);
 		spec_forest.addSpecification(extract_detector);
 		spec_forest.addSpecification(extract_variable_detector);
+		spec_forest.addSpecification(try_catch);
 	}
 	
 	public void clear()
@@ -50,6 +55,13 @@ public class ChangeStream {
 	
 	public void addSet(List<Diff> new_changes, FileVersion before, FileVersion after){
 		if(new_changes.size() == 0) return;
+		
+		if(list.size() > max_size)
+		{
+			for(int i = 0; i < min_size; i++){
+				list.remove(0);
+			}
+		}
 		
 		ChangeSet new_set = new ChangeSet();
 		new_set.setBeforeFile(before);

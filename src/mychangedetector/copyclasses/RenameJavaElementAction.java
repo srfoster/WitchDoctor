@@ -42,6 +42,7 @@ public class RenameJavaElementAction extends SelectionDispatchAction {
 
 	private JavaEditor fEditor;
 	private Runnable callback;
+	private Object prohibitted_name;
 
 	public RenameJavaElementAction(IWorkbenchSite site) {
 		super(site);
@@ -199,9 +200,15 @@ public class RenameJavaElementAction extends SelectionDispatchAction {
 		if (lightweight && fEditor instanceof CompilationUnitEditor && ! (element instanceof IPackageFragment)) {
 			MyRenameLinkedMode linked_mode = new MyRenameLinkedMode(element, (CompilationUnitEditor) fEditor);
 			linked_mode.setCallback(callback);
+			linked_mode.setProhibittedName(prohibitted_name);
 			linked_mode.start();
 		} else {
 			RefactoringExecutionStarter.startRenameRefactoring(element, getShell());
 		}
+	}
+
+	public void setProhibittedName(String string) {
+		this.prohibitted_name = string;
+		
 	}
 }

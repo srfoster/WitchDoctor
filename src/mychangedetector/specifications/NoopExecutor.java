@@ -1,5 +1,7 @@
 package mychangedetector.specifications;
 
+import mychangedetector.builder.SuperResource;
+
 import org.eclipse.core.resources.IFile;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.ui.IEditorPart;
@@ -26,4 +28,12 @@ public class NoopExecutor extends Executor {
 		
 	}
 
+	@Override
+	protected void rollback(IEditorPart editor,
+			IDocument doc) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	
 }

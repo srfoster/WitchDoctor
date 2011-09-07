@@ -5,12 +5,13 @@ import java.util.List;
 
 import mychangedetector.differencer.Diff;
 import mychangedetector.differencer.DiffEntity;
+import mychangedetector.differencer.Differencer;
 
 import org.eclipse.core.resources.IMarker;
 
 import difflib.Delta;
 
-public class SimpleDiff implements Diff {
+public abstract class SimpleDiff implements Diff {
 	
 	Delta delta;
 	List<String> original;
@@ -66,26 +67,41 @@ public class SimpleDiff implements Diff {
 		
 		return "";
 	}
-
+	
 	@Override
-	public DiffEntity getChangedEntity() {
-		SimpleDiffEntity entity = new SimpleDiffEntity(delta.getOriginal(),original, delimiter);
-		entity.setParent(parent);
-		
-		return entity;
+	public void setParent(Differencer parent) {
+		this.parent = (SimpleDifferencer) parent;
 	}
-
+	
 	@Override
-	public DiffEntity getNewEntity() {
-		SimpleDiffEntity entity = new SimpleDiffEntity(delta.getRevised(),revised, delimiter);
-		entity.setParent(parent);
+	public DiffEntity getChangedEntity()
+	{
+		if(isInsert())
+			return revisedToEntity();
+		if(isDelete())
+			return originalToEntity();
+		if(isUpdate())
+			return originalToEntity();
+		if(isMove())
+			return originalToEntity();
 		
-		return entity;
+		return null;
 	}
 
-	public void setParent(SimpleDifferencer parent) {
-		this.parent = parent;
+	public DiffEntity getNewEntity()
+	{
+		if(isInsert())
+			return revisedToEntity();
+		if(isDelete())
+			return null;
+		if(isUpdate())
+			return revisedToEntity();
+		if(isMove())
+			return revisedToEntity();
+		
+		return null;
 	}
-
-
+	
+	abstract protected DiffEntity originalToEntity();
+	abstract protected DiffEntity revisedToEntity();
 }

@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import mychangedetector.builder.CompilerMessage;
 import mychangedetector.builder.SuperResource;
 import mychangedetector.differencer.Diff;
 import mychangedetector.differencer.Differencer;
-import mychangedetector.util.EclipseUtil;
 import difflib.Delta;
 import difflib.DiffUtils;
 import difflib.Patch;
@@ -34,11 +34,27 @@ public class SimpleDifferencer implements Differencer {
         List<Diff> ret = new ArrayList<Diff>();
         
         for (Delta delta: patch.getDeltas()) {
-    		SimpleDiff diff = new SimpleDiff(delta, original, revised, delimiter);
+    		Diff diff = new SimpleTextDiff(delta, original, revised, delimiter);
     		diff.setParent(this);    		
         	ret.add(diff);
         }
 
+        
+        
+        
+        //Now we diff the compiler messages.
+        
+        List<CompilerMessage> original_messages = left.getCompilerMessages();
+        List<CompilerMessage> revised_messages = right.getCompilerMessages();
+
+        Patch messages_patch = DiffUtils.diff(original_messages, revised_messages);
+                
+        for (Delta delta: messages_patch.getDeltas()) {
+    		Diff diff = new SimpleMessageDiff(delta, original, revised, delimiter);
+    		diff.setParent(this);    		
+        	ret.add(diff);
+        }
+        
         return ret;
 	}
 
