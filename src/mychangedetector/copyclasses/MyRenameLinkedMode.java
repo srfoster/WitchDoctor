@@ -164,6 +164,8 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 
 	private Object prohibitted_name;
 
+	private Runnable linked_mode_entered_callback;
+
 
 	public MyRenameLinkedMode(IJavaElement element, CompilationUnitEditor editor) {
 		super(element,editor);
@@ -176,7 +178,7 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 		fFocusEditingSupport= new FocusEditingSupport();
 	}
 
-	public void setCallback(Runnable callback)
+	public void setSuccessCallback(Runnable callback)
 	{
 		this.callback = callback;
 	}
@@ -187,6 +189,7 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 			fgActiveLinkedMode.startFullDialog();
 			return;
 		}
+		
 
 		ISourceViewer viewer= fEditor.getViewer();
 		IDocument document= viewer.getDocument();
@@ -257,6 +260,9 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 			ui.setExitPolicy(new ExitPolicy(document));
 			ui.enter();
 
+			linked_mode_entered_callback.run();
+
+			
 		//	viewer.setSelectedRange(fOriginalSelection.x, fOriginalSelection.y); // by default, full word is selected; restore original selection
 
 			if (viewer instanceof IEditingSupportRegistry) {
@@ -650,6 +656,11 @@ public class MyRenameLinkedMode extends RenameLinkedMode {
 
 	public void setProhibittedName(Object prohibitted_name) {
 		this.prohibitted_name = prohibitted_name;
+	}
+
+	public void setLinkedModeEnteredCallback(
+			Runnable linked_mode_entered_callback) {
+		this.linked_mode_entered_callback = linked_mode_entered_callback;
 	}
 
 }

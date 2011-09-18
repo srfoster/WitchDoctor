@@ -23,8 +23,8 @@ public class EclipseRenameExecutor extends Executor {
 	ASTNode old_name, new_name;
 	UndoEdit undo;
 
-	int cursor_offset = -1;
-	Position cursor_position;
+	int cursor_offset_from_respawn = -1;
+	Position cursor_respawn_position;
 
 	public EclipseRenameExecutor(SpecificationAdapter specificationAdapter) {
 		this.specification = specificationAdapter;
@@ -63,11 +63,16 @@ public class EclipseRenameExecutor extends Executor {
 		TextSelection current_selection = (TextSelection) ((JavaEditor) editor)
 				.getSelectionProvider().getSelection();
 
-		cursor_offset = current_selection.getOffset();
 		
-		cursor_position = new Position(cursor_offset,0);
+		//This is so wonky, but it's the only thing that works.
+		// Have to place the cursor outside of the linked mode box (respawn position),
+		// and then move it to where it's supposed to be.
+		cursor_respawn_position = new Position(new_name.getStartPosition() - 1,0);
+		cursor_offset_from_respawn = current_selection.getOffset() - cursor_respawn_position.getOffset();
+
+		
 		try {
-			document.addPosition(cursor_position);
+			document.addPosition(cursor_respawn_position);
 		} catch (BadLocationException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -104,6 +109,7 @@ public class EclipseRenameExecutor extends Executor {
 
 		int start = old_name.getStartPosition();
 		int length = old_name.getLength();
+
 		
 		try {
 			document.replace(start,length,new_name.toString());
@@ -112,11 +118,11 @@ public class EclipseRenameExecutor extends Executor {
 			e.printStackTrace();
 		}
 		
+
 		TextSelection new_selection = new TextSelection(document,
-				cursor_position.getOffset(), 0);
+				cursor_respawn_position.getOffset() + cursor_offset_from_respawn, 0);
 
 		((JavaEditor) editor).getSelectionProvider().setSelection(new_selection);
-
 	}
 
 	@Override
@@ -137,7 +143,22 @@ public class EclipseRenameExecutor extends Executor {
 		RenameJavaElementAction action = new RenameJavaElementAction(
 				(JavaEditor) editor);
 
-		action.setCallback(new Runnable() {
+		action.setSuccessCallback(new Runnable() {
+			public void run() {
+			//	doDiff(RefactoringEditor.getText());
+
+				resetCheckpoints(doc);
+			}
+		});
+		
+		action.setLinkedModeEnteredCallback(new Runnable() {
+				public void run() {
+					rollForward(doc, editor, start_position);
+				}
+			}
+		);
+		
+		action.setErrorCallback(new Runnable(){
 			public void run() {
 				resetCheckpoints(doc);
 			}
@@ -149,7 +170,6 @@ public class EclipseRenameExecutor extends Executor {
 
 		action.run(t);
 
-		rollForward(doc, editor, start_position);
 
 	}
 

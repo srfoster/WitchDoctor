@@ -63,4 +63,10 @@ public class ASTNodeDescriptor {
 		node.accept(new MatchingASTVisitor(matcher, this));
 		return matcher.didMatch();
 	}
+	
+	public void onMatch(String key, ASTNode node)
+	{
+		
+		
+	}
 }

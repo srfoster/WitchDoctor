@@ -9,6 +9,9 @@ import java.util.List;
 import mychangedetector.builder.CompilerMessage;
 import mychangedetector.builder.SampleBuilder;
 import mychangedetector.builder.SuperResource;
+import mychangedetector.test.MyScriptSimulator;
+import mychangedetector.test.ScriptSimulator;
+import mychangedetector.test.Simulator;
 
 import org.eclipse.core.commands.operations.IOperationHistory;
 import org.eclipse.core.commands.operations.IOperationHistoryListener;
@@ -43,7 +46,6 @@ import org.eclipse.swt.events.VerifyEvent;
 import org.eclipse.swt.events.VerifyListener;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.FileEditorInput;
@@ -70,6 +72,8 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	private boolean is_paused = false;
 	private boolean is_drawing_paused = false;
 	
+	boolean refactoring_on = false;
+	
 	private Integer[] cancellationKeyCodes = {
 		SWT.ESC,
 		SWT.ARROW_DOWN,
@@ -78,6 +82,8 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		SWT.ARROW_RIGHT
 	};
 	
+	
+	Simulator simulator = new MyScriptSimulator();
 	
 	public RefactoringEditor()
 	{
@@ -105,6 +111,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	
 	public void createPartControl(Composite parent) {
 		super.createPartControl(parent);
+
 
 		try{
 
@@ -244,6 +251,12 @@ public class RefactoringEditor extends CompilationUnitEditor {
 			});
 			
 
+
+
+		
+			
+
+			
 		} catch (Exception e){
 			e.printStackTrace();
 		}
@@ -272,7 +285,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 
 	private void refactor(final List<CompilerMessage> messages, final IEditorPart editor)
 	{
-		
+		if(!refactoring_on) return;
 		try{
 			final Display display = PlatformUI.getWorkbench().getDisplay();
 
@@ -545,4 +558,49 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	}
 	
 	
+	public void runSimulator()
+	{
+		final Display display = PlatformUI.getWorkbench().getDisplay();
+
+		(new Thread(new Runnable(){
+			public void run()
+			{
+				simulator.init(styledText);
+
+				while(simulator.hasNextTick())
+				{
+
+					display.asyncExec(new Runnable() {
+						public void run(){
+						
+							if(simulator != null)
+							{
+								simulator.tick();
+								synchronized(simulator){
+									simulator.notify();
+								}
+							}
+						}
+					});
+					
+					try {
+						synchronized(simulator){
+							simulator.wait();
+						}
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					
+					simulator.sleep();
+					
+				}
+						
+			}
+		})).start();
+	}
+	
+	public void toggleRefactoringSupport()
+	{
+		refactoring_on = !refactoring_on;
+	}
 }

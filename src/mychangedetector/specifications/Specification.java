@@ -38,14 +38,37 @@ import org.eclipse.swt.graphics.Point;
 /* 
  * Next steps:
  * 
- * 		
- * 		
- * 		Rename isn't setting the cursor position correctly in linked mode when you change the second instnace of a var.
- * 			I'm using a Position -- which helps a little bit.
- * 				But it's still wonky when you mess with the middle or beginning of a variable.
- * 				And it's important because it solves the problem below also -- keystrokes that happen in mid refactoring go (in general) to the right place.
  * 
- * 		
+ * 		Holy crap -- if we can't execute a refactoring because of syntax errors... we could just comment them out and try again.
+ * 			This would be a cool thing to do during the assessment.  If many refactorings are failing, we can increase our numbers with the commenting trick.
+ * 				(Then we'll have something else to put into the Execution section of the paper.)
+ * 
+ * 
+ * 		Rename will ignore non-available types.  Now make it reset everything as if we were never there.  As it stands, it reverts any changes to non available types.
+ * 
+ * 
+ * 
+ * 
+ * 		Cancelations:
+ * 			They can happen in mid-refactoring -- i.e. while renaming in Linked mode.
+ * 			They can happen afterward, in proposal mode.  This works already though.
+ * 			So it'd be nice if Linked mode worked in the same way.
+ * 
+ * 
+ *  	Can't just rename any simple name.  Consider a method that returns an ArrayList.
+ * 				You want to change it to return a LinkedList.  When you edit the return type,
+ * 				you don't want the tool to try to rename the ArrayList type.
+ * 				The question is how to restrict this.  You probably DO want to be able to rename types sometimes.
+ * 				Could check that the types are defined by you -- not a library.  But that's tricky.
+ * 				Could require that types are renamed at their declaration.  But that's different from rename var.
+ * 				And for that matter, we might have an analogous problem with variables.
+ * 				
+ * 				Maybe the problem is best solved by giving users an ability to cancel a change.
+ * 					And perhaps we can have the tool learn from the cancels...  Future work...
+ * 	
+ * 				Some kind of cancellation feature plus a tool-side tendency to discriminate.
+ * 
+ * 
  * 		Once the above is done, need to get back to writing test code.  Don't want to get sidetracked with issues that aren't super-critical.
  * 		Write MergeSort.  Find more bugs.  Kill them.
  * 
@@ -654,6 +677,20 @@ public class Specification implements Cloneable {
 					target.endCompoundChange();
 			}
 		}
+		
+		
+		Can't just rename any simple name.  Consider a method that returns an ArrayList.
+ * 				You want to change it to return a LinkedList.  When you edit the return type,
+ * 				you don't want the tool to try to rename the ArrayList type.
+ * 				The question is how to restrict this.  You probably DO want to be able to rename types sometimes.
+ * 				Could check that the types are defined by you -- not a library.  But that's tricky.
+ * 				Could require that types are renamed at their declaration.  But that's different from rename var.
+ * 				And for that matter, we might have an analogous problem with variables.
+ * 				
+ * 				Maybe the problem is best solved by giving users an ability to cancel a change.
+ * 					And perhaps we can have the tool learn from the cancels...  Future work...
+		
+		
  *
  *
  *

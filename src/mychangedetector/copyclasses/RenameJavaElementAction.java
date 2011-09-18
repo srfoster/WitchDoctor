@@ -43,6 +43,8 @@ public class RenameJavaElementAction extends SelectionDispatchAction {
 	private JavaEditor fEditor;
 	private Runnable callback;
 	private Object prohibitted_name;
+	private Runnable linked_mode_entered_callback;
+	private Runnable error_callback;
 
 	public RenameJavaElementAction(IWorkbenchSite site) {
 		super(site);
@@ -54,7 +56,7 @@ public class RenameJavaElementAction extends SelectionDispatchAction {
 		setEnabled(SelectionConverter.canOperateOn(fEditor));
 	}
 	
-	public void setCallback(Runnable callback)
+	public void setSuccessCallback(Runnable callback)
 	{
 		this.callback = callback;
 	}
@@ -147,18 +149,26 @@ public class RenameJavaElementAction extends SelectionDispatchAction {
 			if (element != null && RefactoringAvailabilityTester.isRenameElementAvailable(element)) {
 				run(element, lightweight);
 				return;
-			} else if (lightweight) {
+			} 
+			
+			else if (lightweight) {
 				// fall back to local rename:
+				/*
 				CorrectionCommandHandler handler= new CorrectionCommandHandler(fEditor, LinkedNamesAssistProposal.ASSIST_ID, true);
 				if (handler.doExecute()) {
 					fEditor.setStatusLineErrorMessage(RefactoringMessages.RenameJavaElementAction_started_rename_in_file);
 					return;
 				}
+				*/
+				error_callback.run();
+				return;
 			}
 		} catch (CoreException e) {
+			e.printStackTrace();
 			ExceptionHandler.handle(e, RefactoringMessages.RenameJavaElementAction_name, RefactoringMessages.RenameJavaElementAction_exception);
 		}
 		MessageDialog.openInformation(getShell(), RefactoringMessages.RenameJavaElementAction_name, RefactoringMessages.RenameJavaElementAction_not_available);
+		error_callback.run();
 	}
 
 	public boolean canRunInEditor() {
@@ -199,7 +209,8 @@ public class RenameJavaElementAction extends SelectionDispatchAction {
 
 		if (lightweight && fEditor instanceof CompilationUnitEditor && ! (element instanceof IPackageFragment)) {
 			MyRenameLinkedMode linked_mode = new MyRenameLinkedMode(element, (CompilationUnitEditor) fEditor);
-			linked_mode.setCallback(callback);
+			linked_mode.setSuccessCallback(callback);
+			linked_mode.setLinkedModeEnteredCallback(linked_mode_entered_callback);
 			linked_mode.setProhibittedName(prohibitted_name);
 			linked_mode.start();
 		} else {
@@ -209,6 +220,13 @@ public class RenameJavaElementAction extends SelectionDispatchAction {
 
 	public void setProhibittedName(String string) {
 		this.prohibitted_name = string;
-		
+	}
+
+	public void setLinkedModeEnteredCallback(Runnable runnable) {
+		this.linked_mode_entered_callback = runnable;
+	}
+
+	public void setErrorCallback(Runnable runnable) {
+		this.error_callback = runnable;
 	}
 }

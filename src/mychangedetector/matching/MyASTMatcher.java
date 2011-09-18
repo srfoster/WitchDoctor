@@ -175,6 +175,7 @@ public class MyASTMatcher extends ASTMatcher {
 		if(match.getBindingName() != null)
 		{
 			setProperty((String)match.getBindingName(),node);
+			match.onMatch((String)match.getBindingName(),node);
 		}
 		
 		
