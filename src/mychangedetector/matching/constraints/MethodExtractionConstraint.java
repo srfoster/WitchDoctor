@@ -131,9 +131,9 @@ public class MethodExtractionConstraint extends Constraint {
 				 
 				 //Now we start deleting the siblings to see if multiple lines have been replaced.
 				 
-				 while(siblings_copy.get(index_of_first + 1) != null)
+				 while(siblings_copy.size() > index_of_first + 1 && siblings_copy.get(index_of_first + 1) != null)
 				 {
-					 siblings_copy.remove(index_of_first + 1);
+					 siblings_copy.remove(index_of_first + 1);;
 					 
 					 extraction_detected = hook_statement_method_copy.subtreeMatch(new ASTMatcher(), method_call_method_copy); 
 					 

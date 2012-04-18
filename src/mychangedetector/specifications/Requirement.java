@@ -14,7 +14,7 @@ public abstract class Requirement implements Cloneable {
 	protected List<FreeVar> bindings = new ArrayList<FreeVar>();
 
 	protected Specification specification;
-	
+	protected String operation;
 
 	public void setSpecification(Specification specification)
 	{
@@ -84,12 +84,13 @@ public abstract class Requirement implements Cloneable {
 	public void match(ChangeWrapper change, List<Constraint> external_constraints) {
 		
 		//Find any bindings in this change item
-		ChangeMatcher matcher = buildChangeMatcher();
-		matcher.match(change);
+		ChangeMatcher matcher = buildChangeMatcher(); 
+		matcher.match(operation,change);
 		Map<String,ASTNode> matched_before_bindings = matcher.getBeforeBindings();
-		Map<String,ASTNode> matched_after_bindings = matcher.getAfterBindings();
+		Map<String,ASTNode> matched_after_bindings = matcher.getAfterBindings();;
 
 		boolean match_successful = constrain(matched_before_bindings, external_constraints, change);
+		
 		match_successful         = constrain(matched_after_bindings, external_constraints, change) || match_successful;
 		
 		if(match_successful){

@@ -5,34 +5,20 @@ import java.util.List;
 
 import mychangedetector.builder.CompilerMessage;
 import mychangedetector.change_management.ChangeWrapper;
-import mychangedetector.matching.constraints.MethodExtractionConstraint;
+import mychangedetector.matching.constraints.IsAvailableMethod;
 import mychangedetector.matching.constraints.NotEqualConstraint;
 import mychangedetector.matching.constraints.VariableExtractionConstraint;
 import mychangedetector.matching.constraints.VariableRenamedConstraint;
+import mychangedetector.specification.requirements.CodeBlock;
 import mychangedetector.specification.requirements.MethCall;
 import mychangedetector.specification.requirements.NameChange;
+import mychangedetector.specification.requirements.SameParentConstraint;
 import mychangedetector.specification.requirements.Statement;
 import mychangedetector.specification.requirements.StatementWithCompilerMessage;
-import mychangedetector.specification.requirements.UpdateMethod;
 import mychangedetector.specification.requirements.UpdateStatement;
 
 import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.internal.ui.text.correction.AssistContext;
-import org.eclipse.jdt.internal.ui.text.correction.JavaCorrectionProcessor;
-import org.eclipse.jdt.internal.ui.text.correction.ProblemLocation;
-import org.eclipse.jdt.internal.ui.text.correction.UnresolvedElementsSubProcessor;
-import org.eclipse.jdt.ui.SharedASTProvider;
-import org.eclipse.jdt.ui.text.java.IInvocationContext;
-import org.eclipse.jdt.ui.text.java.IProblemLocation;
-import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.IRewriteTarget;
-import org.eclipse.jface.text.ITextViewer;
-import org.eclipse.jface.text.ITextViewerExtension;
-import org.eclipse.jface.text.contentassist.ICompletionProposal;
-import org.eclipse.jface.text.contentassist.ICompletionProposalExtension;
-import org.eclipse.jface.text.contentassist.ICompletionProposalExtension2;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.Point;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
 
    
 /* 
@@ -400,30 +386,54 @@ public class Specification implements Cloneable {
 		Specification extract = new Specification("Extract Method");
 
 		//Not well named.  This looks for a deleted statement, then binds the parent method declaration.
-		UpdateMethod updated_method = new UpdateMethod("old_method","new_method");
+		//UpdateMethod updated_method = new UpdateMethod("old_method","new_method");
 
+		CodeBlock deleted_block = new CodeBlock("DELETE","removed_statement_");
+		MethCall  added_method_call = new MethCall("INSERT","method_call");
+
+		extract.addRequirement(deleted_block);
+		extract.addRequirement(added_method_call);
+		
+		extract.addConstraint(new SameParentConstraint("removed_statement_1","method_call", MethodDeclaration.class));
+		extract.addConstraint(new IsAvailableMethod("method_call"));
+		
+		
+		Specification.addExecutor(extract, new EclipseExtractMethodExecutor(new ExtractMethodSpecificationAdapter(extract)));
+		
+		return extract; 
+	}
+	
+	/*
+	public static Specification newExtractMethodSpecification()
+	{
+		Specification extract = new Specification("Extract Method");
+
+		//Not well named.  This looks for a deleted statement, then binds the parent method declaration.
+		//UpdateMethod updated_method = new UpdateMethod("old_method","new_method");
+
+		Statement deleted_statement = new Statement("DELETE","hook_statement");
 		
 		//Now we want to detect the introduction of a method call.  Whatever was deleted in between must be the extracted lines.
-		MethCall change_to_method_call = new MethCall("UPDATE","method_call");
+		// Actually, it's not working.  Deleting a statement and moving a method call up into its position looks like updating to a method call.
+		//MethCall change_to_method_call = new MethCall("UPDATE","method_call");
 		
 		//Now we want to detect the introduction of a method call.  Whatever was deleted in between must be the extracted lines.
 		MethCall insert_new_method_call = new MethCall("INSERT","method_call");
 		
-		extract.addRequirement(updated_method);
+		extract.addRequirement(deleted_statement);
 		extract.addRequirement(insert_new_method_call);
-		extract.addRequirement(change_to_method_call);
+//		extract.addRequirement(change_to_method_call);
 
-		
-		
+
 		//We also need a constraint that will verify that the new method call replaces some contiguous sequence of code lines.
 		//   This can also check to see that there haven't been any other changes to the method -- i.e. not related to the extraction.
 		extract.addConstraint(new MethodExtractionConstraint("method_call","hook_statement"));  //Bonus points if this works in both directions.
-		
 	
 		Specification.addExecutor(extract, new EclipseExtractMethodExecutor(new ExtractMethodSpecificationAdapter(extract)));
 		
 		return extract; 
 	}
+	*/
 	
 	public static Specification newTryCatchSpecification()
 	{

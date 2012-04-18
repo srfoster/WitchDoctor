@@ -1,5 +1,10 @@
 package mychangedetector.test.data;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,10 +36,98 @@ import org.eclipse.ltk.core.refactoring.Change;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
 
 public class FindExtractMethodPoints {
+	
+	Connection conn;
+	
+	int batch_size = 1;
+	int total_batches = 1932;
+	
+	int data_set_id = 3;
+	//String prefix = "/Users/stephenfoster/Desktop/Research/javaProjects/org.eclipse.compare/plugins/org.eclipse.compare/";
+	//String prefix = "/Users/stephenfoster/Desktop/Research/javaProjects/org.eclipse.jface/";
+	String prefix = "/Users/stephenfoster/Desktop/Research/javaProjects/current/struts2/";
+
+	//String project_name = "org.eclipse.compare";
+	//String project_name = "org.eclipse.jface";
+	String project_name = "struts";
+	
+	int current_file_id = -1;
+	int refactoring_id = 1;
+	
+	java.sql.Statement stat = null;
+	
+	List<PendingUpdate> updates;
 
 	public void execute()
 	{
-		IFile file = getFile("compare/org/eclipse/compare/internal/ExceptionHandler.java");
+		
+	    try {
+			Class.forName("org.sqlite.JDBC");
+		} catch (ClassNotFoundException e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
+
+		try{
+		    conn = DriverManager.getConnection("jdbc:sqlite:/Users/stephenfoster/Documents/workspace/MyChangeDetectorNew/data/data.db");
+		    stat = conn.createStatement();
+		    
+		    for(int i = 0; i < total_batches; i++)
+		    {
+		    	updates = new ArrayList<PendingUpdate>();
+
+				System.out.println("\nBatch #" + (i + 1));
+
+				ResultSet results = stat.executeQuery("select * from files where data_set_id = "+ data_set_id + " limit " + batch_size + " offset " + (batch_size * i));
+	
+				while(results.next())
+				{
+					String full_name = results.getString("name");
+					String short_name = full_name.replace(prefix,"");
+					System.out.println(short_name);
+					
+					if(!short_name.endsWith(".java"))
+						continue;
+					
+					
+					current_file_id = results.getInt("id");
+					
+					//System.out.println(results.getString("contents"));
+					findBlocksInFile(short_name);
+	
+				}
+				
+				for(PendingUpdate p : updates)
+				{
+					
+					try {
+						String query = "insert into ranges (file_id, refactoring_id, offset, length, snippet) values ("+p.file_id+","+refactoring_id+","+p.offset+","+p.length+", ?)";
+						
+						PreparedStatement prep = conn.prepareStatement(query);
+						prep.setString(1, p.snippet);
+						prep.addBatch();
+						prep.executeBatch();
+					} catch (SQLException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+				}
+		    }
+			
+		}catch(SQLException e) {
+			
+			e.printStackTrace();
+		}
+		
+		
+		
+		
+	}
+	
+	
+	private void findBlocksInFile(String file_name)
+	{
+		IFile file = getFile(file_name);
 		
 		ICompilationUnit element = JavaCore.createCompilationUnitFrom(file);
 	
@@ -49,24 +142,26 @@ public class FindExtractMethodPoints {
 		
 		List<Block> bodies = getMethodBodies(full_text);
 		
+		if(bodies.size() == 0)
+		{
+			return;
+		}
+		
 		List<ProgramRange> ranges = getProgramRanges(bodies);
 		
 		
 		for(ProgramRange range : ranges)
 		{
-			range.checkRange(full_text, element);
+			if(!range.isEmpty())
+				range.checkRange(full_text, element);
 		}
 	}
-	
-	
-	
-	
 
 	
 	private IFile getFile(String name)
 	{
 		IWorkspace ws = ResourcesPlugin.getWorkspace();
-		IProject project = ws.getRoot().getProject("org.eclipse.compare");
+		IProject project = ws.getRoot().getProject(project_name);
 		
 		IPath location = new Path(name);
 		IFile file = project.getFile(location);
@@ -81,7 +176,12 @@ public class FindExtractMethodPoints {
 		
 		ASTNode tree = parser.createAST(null);
 		
-		TypeDeclaration type = (TypeDeclaration) ((CompilationUnit)tree).types().get(0);
+		List types = ((CompilationUnit)tree).types();
+		
+		if(types.size() == 0 || !(types.get(0) instanceof TypeDeclaration))
+			return new ArrayList<Block>();
+		
+		TypeDeclaration type = (TypeDeclaration) types.get(0);
 		
 		MethodDeclaration[] methods = type.getMethods();
 		
@@ -97,15 +197,20 @@ public class FindExtractMethodPoints {
 	
 	private List<ProgramRange> getProgramRanges(List<Block> blocks)
 	{
+		
 		List<ProgramRange> ret = new ArrayList<ProgramRange>();
 		
 		for(Block block : blocks)
 		{
-			ProgramRange p = new ProgramRange();
-			
-			p.setStatements(block.statements());
-			
-			ret.add(p);
+			if(block != null)
+			{
+				ProgramRange p = new ProgramRange();
+				
+				
+				p.setStatements(block.statements());
+				
+				ret.add(p);
+			}
 		}
 		
 		return ret;
@@ -120,6 +225,7 @@ public class FindExtractMethodPoints {
 		public void setStatements(List<Statement> statements)
 		{
 			this.statements = statements;
+			
 			
 			for(Statement s : statements)
 			{
@@ -147,7 +253,6 @@ public class FindExtractMethodPoints {
 					new_range.setStatements(b.statements());
 					child_ranges.add(new_range);
 				}
-				
 			}
 			
 		}
@@ -167,9 +272,15 @@ public class FindExtractMethodPoints {
 		
 		public void checkRange(String text, ICompilationUnit element)
 		{
+			if(statements.size() == 0)
+				return;
+			
+			int offset = getOffset();
+			int length = getLength();
+			int end    = getOffset() + length;
 			String to_extract = text.substring(getOffset(), getOffset() + getLength());
 
-			System.out.println(to_extract);
+			//System.out.println(to_extract);
 			
 			ExtractMethodRefactoring refactoring = new ExtractMethodRefactoring(element, getOffset(), getLength());
 			refactoring.setMethodName("new_method");
@@ -177,21 +288,44 @@ public class FindExtractMethodPoints {
 			RefactoringStatus status = null;
 			try {
 				status = refactoring.checkInitialConditions(new NullProgressMonitor());
-			} catch (CoreException e) {
+			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+				return;
 			}
 
-			System.out.println(status.toString());
+			
+			if(status.hasError())
+			{
+				//System.out.println(status.toString());
+
+				return;
+			}
+			
+			
+			//System.out.println(status.toString());
+			
+			System.out.print(".");
+						
+			PendingUpdate p = new PendingUpdate();
+			p.file_id = current_file_id;
+			p.offset  = offset;
+			p.length  = length;
+			p.snippet = text.substring(offset,offset+length);
+			
+			updates.add(p);
+
 			
 			Change change = null;
 			try {
 				change = refactoring.createChange(new NullProgressMonitor());
-			} catch (CoreException e) {
+			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			change.initializeValidationData(new NullProgressMonitor());
+			
+			
 			
 			for(ProgramRange child : child_ranges)
 			{
@@ -199,5 +333,18 @@ public class FindExtractMethodPoints {
 			}
 		}
 		
+		public boolean isEmpty()
+		{
+			return statements.size() == 0;
+		}
+		
+	}
+	
+	private class PendingUpdate
+	{
+		public int file_id;
+		public int offset;
+		public int length;
+		public String snippet;
 	}
 }

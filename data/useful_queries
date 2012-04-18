@@ -1,0 +1,19 @@
+
+
+File-size and score for a run:
+
+select length(files.contents), value from results left join tests on tests.result_id = results.id left join ranges on tests.range_id = ranges.id left join files on ranges.file_id = files.id where tests.run_id = 137;
+
+
+BTW, runs:
+
+134 - Struts  (1500)
+135 - JFace   (1500)
+136 - Compare (1500)
+137 - Struts  (1060)
+
+
+
+Results from last run:
+
+select value, range_id from results left join tests on tests.result_id = results.id left join runs on tests.run_id = runs.id where runs.id in (select max(id) from runs);

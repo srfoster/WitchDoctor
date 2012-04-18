@@ -2,8 +2,12 @@ package mychangedetector.views;
 
 
 import mychangedetector.editors.RefactoringEditor;
+import mychangedetector.test.MyScriptSimulator;
 import mychangedetector.test.data.FindExtractMethodPoints;
+import mychangedetector.test.data.GetExtractMethodTargetTexts;
+import mychangedetector.test.runner.TestExtractMethodUserVariance;
 
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.viewers.DoubleClickEvent;
 import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
@@ -58,21 +62,42 @@ public class RefactoringView extends ViewPart {
 							RefactoringEditor.refactoringEditor.toggleRefactoringSupport();
 						}
 					}
-					
 					, 
 					new MyTask("Test DiffSimulator"){
 						public void doTask(){
-							RefactoringEditor.refactoringEditor.runSimulator();
+							RefactoringEditor.refactoringEditor.runSimulator(new MyScriptSimulator());
+						}
+					}
+					, 
+					
+					new MyTask("Extract Method User Variance Test"){
+						public void doTask(){
+							new TestExtractMethodUserVariance().execute();
+						}
+					}, 
+					
+					new MyTask("Damage Document"){
+						public void doTask(){
+							IDocument doc = RefactoringEditor.refactoringEditor.currentDocument();
+							RefactoringEditor.refactoringEditor.damageDocument(0,doc.get().length());
 						}
 					}
 					
-					, 
+					,
 					new MyTask("Find ExtractMethod Points"){
 						public void doTask(){
 							new FindExtractMethodPoints().execute();
 						}
 					}
-					};
+					, 
+					new MyTask("Create ExtractMethod Targets"){
+						public void doTask(){
+							new GetExtractMethodTargetTexts().execute();
+						}
+					}
+					
+					
+				};
 		}
 	}
 	

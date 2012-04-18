@@ -8,8 +8,11 @@ import mychangedetector.builder.CompilerMessage;
 import mychangedetector.builder.SuperResource;
 import mychangedetector.differencer.Diff;
 import mychangedetector.differencer.Differencer;
+import difflib.Chunk;
+import difflib.DeleteDelta;
 import difflib.Delta;
 import difflib.DiffUtils;
+import difflib.InsertDelta;
 import difflib.Patch;
 
 public class SimpleDifferencer implements Differencer {
@@ -34,9 +37,53 @@ public class SimpleDifferencer implements Differencer {
         List<Diff> ret = new ArrayList<Diff>();
         
         for (Delta delta: patch.getDeltas()) {
-    		Diff diff = new SimpleTextDiff(delta, original, revised, delimiter);
-    		diff.setParent(this);    		
-        	ret.add(diff);
+        	
+        	
+        	if(isDelete(delta))
+        	{
+        		//If multiple lines were removed, treat it as multiple removals of single lines.
+
+        		int pos = delta.getOriginal().getPosition();
+	        	for(Object l : delta.getOriginal().getLines())
+	        	{
+	        		String line = (String) l;
+	        		ArrayList<String> line_array = new ArrayList<String>();
+	        		line_array.add(line);
+	        		
+	        		Chunk c = new Chunk(pos++, line_array);
+	        		
+	        		Delta new_delta = new DeleteDelta(c,delta.getRevised());
+	        		
+	        		Diff diff = new SimpleTextDiff(new_delta, original, revised, delimiter);
+	        		diff.setParent(this);    		
+	            	ret.add(diff);
+	        	}
+        	}
+        	else if(isInsert(delta))
+        	{
+        		//If multiple lines were inserted, treat it as multiple inserts of single lines.
+
+        		int pos = delta.getRevised().getPosition();
+	        	for(Object l : delta.getRevised().getLines())
+	        	{
+	        		String line = (String) l;
+	        		ArrayList<String> line_array = new ArrayList<String>();
+	        		line_array.add(line);
+	        		
+	        		Chunk c = new Chunk(pos++, line_array);
+	        		
+	        		Delta new_delta = new InsertDelta(delta.getOriginal(),c);
+	        		
+	        		Diff diff = new SimpleTextDiff(new_delta, original, revised, delimiter);
+	        		diff.setParent(this);    		
+	            	ret.add(diff);
+	        	}
+        	}
+        	else{
+	    		Diff diff = new SimpleTextDiff(delta, original, revised, delimiter);
+	    		diff.setParent(this);    		
+	        	ret.add(diff);
+        	}
         }
 
         
@@ -62,4 +109,41 @@ public class SimpleDifferencer implements Differencer {
 		return new ArrayList<String>(Arrays.asList(string.split(delimiter)));
 	}
 	
+	
+	private boolean isDelete(Delta delta)
+	{
+		boolean replacement_is_blank = true;
+		
+		for(Object l : delta.getRevised().getLines())
+		{
+			String line = (String) l;
+			
+			
+			if(!line.matches("^[\\t\\s\\n]*$"))
+			{
+				replacement_is_blank = false;
+			}
+		}
+		
+		
+		return replacement_is_blank || delta.getType() == Delta.TYPE.DELETE;
+	}
+	
+	private boolean isInsert(Delta delta)
+	{
+		boolean original_is_blank = true;
+		
+		for(Object l : delta.getOriginal().getLines())
+		{
+			String line = (String) l;
+			
+			if(!line.matches("[\\t\\s\\n]*"))
+			{
+				original_is_blank = false;
+			}
+		}
+		
+		
+		return original_is_blank || delta.getType() == Delta.TYPE.INSERT;
+	}
 }

@@ -15,7 +15,6 @@ public class MethodDef extends Requirement {
 	private FreeVar method_name_var;
 	private FreeVar method_body_var;
 	private FreeVar method_decl_var;
-	String operation;
 		
 	public MethodDef(String operation, String method_decl_var_name, String method_name_var_name) {
 		method_name_var = new FreeVar(method_name_var_name);

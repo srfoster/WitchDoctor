@@ -134,7 +134,7 @@ public class MyASTMatcher extends ASTMatcher {
 		   }
 	   }
 	   
-	   System.out.println("Setting " + s + " to " + n);
+	  // System.out.println("Setting " + s + " to " + n);
 
 	   properties.put(s,n);
 		
@@ -158,23 +158,13 @@ public class MyASTMatcher extends ASTMatcher {
 		
 		ASTNodeDescriptor match = (ASTNodeDescriptor) other;
 		
-		Class the_class = null;
-		try {
-			the_class = Class.forName(match.getClassName());
-		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		if(!the_class.isInstance(node))
-		{
+		if(!match.describes(node))
 			return false;
-		}
-			
+		
 				
 		if(match.getBindingName() != null)
 		{
-			setProperty((String)match.getBindingName(),node);
+			setProperty((String)match.getBindingName(),node);;
 			match.onMatch((String)match.getBindingName(),node);
 		}
 		

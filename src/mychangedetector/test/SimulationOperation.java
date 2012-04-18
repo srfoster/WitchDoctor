@@ -3,14 +3,14 @@ package mychangedetector.test;
 import org.eclipse.swt.custom.StyledText;
 
 public abstract class SimulationOperation {
-	protected StyledText text;
+	protected TextAdapter text;
 	
-	public SimulationOperation(StyledText text)
+	public SimulationOperation(TextAdapter text)
 	{
 		this.text = text;
 	}
 	
-	protected StyledText getText()
+	protected TextAdapter getAdapter()
 	{
 		return text;
 	}

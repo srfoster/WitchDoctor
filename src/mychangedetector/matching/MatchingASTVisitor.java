@@ -15,7 +15,7 @@ public class MatchingASTVisitor extends ASTVisitor {
 		this.to_match = to_match;
 	}
 	
-	public void postVisit(ASTNode node){
+	public void preVisit(ASTNode node){
 		node.subtreeMatch(matcher,to_match);
 	}
 }

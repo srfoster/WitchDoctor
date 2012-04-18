@@ -6,7 +6,7 @@ public class RecordSelectionOperation extends SimulationOperation {
 	private int start = -1;
 	private boolean done = false;
 	
-	public RecordSelectionOperation(StyledText text) {
+	public RecordSelectionOperation(TextAdapter text) {
 		super(text);
 	}
 
@@ -19,11 +19,11 @@ public class RecordSelectionOperation extends SimulationOperation {
 		
 		if(start == -1)
 		{
-			start = getText().getCaretOffset();
+			start = getAdapter().getText().getCaretOffset();
 			return;
 		}
 		
-		getText().setSelection(start,getText().getCaretOffset());
+		getAdapter().getText().setSelection(start,getAdapter().getText().getCaretOffset());
 		
 		done = true;
 	}

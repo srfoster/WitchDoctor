@@ -107,7 +107,9 @@ public class MyJavaCodeScanner extends AbstractJavaScanner {
 
 		public boolean isWithinGhostMarkers(char c, MyJavaCodeScanner scanner)
 		{
-			return RefactoringEditor.refactoringEditor.offsetWithinGray(scanner.getOffset());
+			boolean should_be_gray = RefactoringEditor.refactoringEditor.offsetWithinGray(scanner.getOffset());
+			
+			return should_be_gray;
 		}
 
 		/*
@@ -457,15 +459,16 @@ public class MyJavaCodeScanner extends AbstractJavaScanner {
 
 		List rules= new ArrayList();
 
+		/*
 		Display display = PlatformUI.getWorkbench().getDisplay();
 
 		Token token= new Token(new TextAttribute(display.getSystemColor(SWT.COLOR_GRAY),null,0));
 		rules.add(new GhostTextRule(token));
-
-
+	*/
+		
 		
 		// Add rule for character constants.
-		token= getToken(IJavaColorConstants.JAVA_STRING);
+		Token token= getToken(IJavaColorConstants.JAVA_STRING);
 		rules.add(new SingleLineRule("'", "'", token, '\\')); //$NON-NLS-2$ //$NON-NLS-1$
 
 
@@ -493,7 +496,7 @@ public class MyJavaCodeScanner extends AbstractJavaScanner {
 			j14Matcher.addWord(fgJava14Keywords[i], token);
 
 		combinedWordRule.addWordMatcher(j14Matcher);
-		fVersionDependentRules.add(j14Matcher);
+		fVersionDependentRules.add(j14Matcher);		
 
 		VersionedWordMatcher j15Matcher= new VersionedWordMatcher(defaultToken, JavaCore.VERSION_1_5, version);
 		
@@ -535,6 +538,8 @@ public class MyJavaCodeScanner extends AbstractJavaScanner {
 
 
 		setDefaultReturnToken(defaultToken);
+		
+		
 		return rules;
 	}
 

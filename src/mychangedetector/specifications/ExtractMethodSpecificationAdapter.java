@@ -1,6 +1,8 @@
 package mychangedetector.specifications;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -174,19 +176,42 @@ public class ExtractMethodSpecificationAdapter extends SpecificationAdapter {
 		return meth_name_var.binding().toString();
 	}
 	
+	
+	//THis might not technically be correct.  We sort the statement by offset -- but really, we should
+	// sort by the way they're ordered as siblings of removed_statement_1.  THis statement's "remembers" the
+	// original ordering -- and so it's robust to alterations that may have occurred between statement removals.
 	public List<ASTNode> getRemovedStatements()
 	{
 		List<ASTNode> ret = new ArrayList<ASTNode>();
 		
-		FreeVar current_statement_var = getProperty("removed_statement_0");
-		int count = 1;
+		FreeVar current_statement_var = getProperty("removed_statement_1");
+		int count = 2;
 		
 		do
 		{
-			ret.add(current_statement_var.binding());
+			if(current_statement_var.binding() != null)
+				ret.add(current_statement_var.binding());
 			current_statement_var = getProperty("removed_statement_"+count++);
 		} while(current_statement_var != null);
 
+		Collections.sort(ret, new Comparator<ASTNode>(){
+
+			@Override
+			public int compare(ASTNode f, ASTNode s) {
+				int f_start = f.getStartPosition();
+				int s_start = s.getStartPosition();
+
+				if(f_start > s_start)
+					return 1;
+				if(s_start > f_start)
+					return -1;
+				
+				return 0;
+			}
+			
+		});
+		
+		
 		return ret;
 	}
 

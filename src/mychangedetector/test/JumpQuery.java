@@ -6,13 +6,13 @@ import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.swt.custom.StyledText;
 
 public abstract class JumpQuery {
-	StyledText text;
-	public JumpQuery(StyledText text)
+	TextAdapter text;
+	public JumpQuery(TextAdapter text)
 	{
 		this.text = text;
 	}
 
-	public StyledText getText()
+	public TextAdapter getAdapter()
 	{
 		return text;
 	}

@@ -20,17 +20,11 @@ public class CodeBlock extends Requirement {
 	FreeVar meth_decl_var;
 	int counter = 1;
 	String prefix;
-	String operation;
 		
 	public CodeBlock(String operation, String prefix) {
 		this.prefix = prefix;
 		this.operation = operation;
-		
-		meth_decl_var = new FreeVar(prefix + "method_declaration");
-		bindings.add(meth_decl_var);
-		
-		current_statement = new FreeVar(prefix + counter);
-		bindings.add(current_statement);
+	
 	}
 	
 	public String getPrefix(){
@@ -44,6 +38,7 @@ public class CodeBlock extends Requirement {
 		
 		change_event.setChangeType(operation);
 		change_event.setBeforeNodeMatcher(buildBeforeNodeMatcher());
+		change_event.setAfterNodeMatcher(buildBeforeNodeMatcher());
 
 		return change_event;
 	}
@@ -63,11 +58,13 @@ public class CodeBlock extends Requirement {
 
 	@Override
 	protected void afterMatch(ChangeWrapper change) {
+		/*
 		if(getProperty(meth_decl_var.name()).binding() == null)
 		{
 			ASTNode method_decl = getCurrentMethod();
 			setProperty(meth_decl_var.name(),method_decl,change);
 		}
+		*/
 		
 		counter++; // If we've matched the current statement, we're ready to try matching another.
 		current_statement = new FreeVar(prefix + counter);
@@ -98,7 +95,10 @@ public class CodeBlock extends Requirement {
 	protected List<Constraint> localConstraints() {
 		ArrayList<Constraint> local_constraints = new ArrayList<Constraint>();
 		
-		local_constraints.add(new ConsecutiveConstraint(prefix));
+		if(counter == 0)
+			return local_constraints;
+		
+		local_constraints.add(new SameParentConstraint(prefix+counter, prefix + (counter-1), org.eclipse.jdt.core.dom.Statement.class));
 		
 		return local_constraints;
 	}

@@ -1,6 +1,7 @@
 package mychangedetector.util;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -10,6 +11,9 @@ import java.io.Writer;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ASTParser;
 
 public class EclipseUtil {
 	public static String fileToString(IFile file)
@@ -53,4 +57,18 @@ public class EclipseUtil {
 			return "";
 		} 
 }
+
+	public static InputStream convertStringToStream(String str) {
+		InputStream is = new ByteArrayInputStream( str.getBytes() );
+		return is;
+	}
+	
+	public static ASTNode convertStringToAst(String s)
+	{
+		ASTParser parser = ASTParser.newParser(AST.JLS3);
+		parser.setSource(s.toCharArray());
+		
+		ASTNode tree = parser.createAST(null);
+		return tree;
+	}
 }

@@ -54,6 +54,8 @@ public abstract class Executor implements Cloneable {
 	
 	//For doing diffs against.
 	String old_string;
+	
+	int old_offset;
 
 	public SpecificationAdapter getSpecification() {
 		return this.specification;
@@ -109,6 +111,7 @@ public abstract class Executor implements Cloneable {
 	public void execute() {
 		already_executed = true;
 
+		
 		final String class_name = RefactoringEditor.refactoringEditor.getCurrentDocumentName();
 
 		//final SuperResource backup = RefactoringEditor.refactoringEditor.getBuilder().getOriginal(class_name);
@@ -141,6 +144,8 @@ public abstract class Executor implements Cloneable {
 
 				old_string = RefactoringEditor.getText();
 				
+				old_offset = RefactoringEditor.getScrollOffset();
+				
 				try {
 					RefactoringEditor.refactoringEditor.pause();
 
@@ -150,6 +155,8 @@ public abstract class Executor implements Cloneable {
 						public void run(){
 							try{
 								afterRollback(editor, doc);
+								RefactoringEditor.refactoringEditor.refactoringBegun(Executor.this);
+
 							} catch (Exception e) {
 								e.printStackTrace();
 								resetCheckpoints(doc);
@@ -200,7 +207,9 @@ public abstract class Executor implements Cloneable {
         	
     		RefactoringEditor.refactoringEditor.grayRange(gray_offset,gray_offset + gray_length);
     		
-            System.out.println("Gray?");
+    		RefactoringEditor.setScrollOffset(old_offset);
+    		   
+            System.out.println("Gray?"); 
         }
 	}
 	

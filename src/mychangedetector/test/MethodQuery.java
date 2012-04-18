@@ -14,26 +14,35 @@ import org.eclipse.swt.custom.StyledText;
 
 public class MethodQuery extends JumpQuery {
 	
-	public MethodQuery(StyledText text) {
+	public MethodQuery(TextAdapter text) {
 		super(text);
 	}
 
 	@Override
 	public List<ASTNode> resolveToASTNodes() {
-		String text = getText().getText();
+		String text = getAdapter().getText().getText();
 		
-		ASTParser parser = ASTParser.newParser(AST.JLS3);
-		parser.setSource(text.toCharArray());
-		
-		ASTNode tree = parser.createAST(null);
-		
-		TypeDeclaration type = (TypeDeclaration) ((CompilationUnit)tree).types().get(0);
-		
-		MethodDeclaration[] methods = type.getMethods();
+		MethodDeclaration[] methods = getMethodsFor(text);
 		
 		return new ArrayList<ASTNode>(Arrays.asList(methods));
 	}
 
 
-
+	public static MethodDeclaration[] getMethodsFor(String s)
+	{
+		ASTParser parser = ASTParser.newParser(AST.JLS3);
+		parser.setSource(s.toCharArray());
+		
+		ASTNode tree = parser.createAST(null);
+		
+		return getMethodsFor(tree);
+	}
+	
+	public static MethodDeclaration[] getMethodsFor(ASTNode tree)
+	{
+		TypeDeclaration type = (TypeDeclaration) ((CompilationUnit)tree).types().get(0);
+		
+		MethodDeclaration[] methods = type.getMethods();
+		return methods;
+	}
 }

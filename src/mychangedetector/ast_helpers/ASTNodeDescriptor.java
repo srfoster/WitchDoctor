@@ -59,9 +59,15 @@ public class ASTNodeDescriptor {
 	
 	public boolean describes(ASTNode node)
 	{
-		MyASTMatcher matcher = new MyASTMatcher();
-		node.accept(new MatchingASTVisitor(matcher, this));
-		return matcher.didMatch();
+		Class the_class = null;
+		try {
+			the_class = Class.forName(getClassName());
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return the_class.isInstance(node);
 	}
 	
 	public void onMatch(String key, ASTNode node)

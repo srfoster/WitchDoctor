@@ -26,6 +26,10 @@ public class SpecificationForest {
 	
 	public void handleChanges(List<ChangeWrapper> changes)
 	{
+		if(specifications.size() > 50)
+			reset();
+		
+		
 		ArrayList<Specification> toAdd = new ArrayList<Specification>();
 		
 		boolean no_progress = true;
@@ -44,7 +48,12 @@ public class SpecificationForest {
 			if(!specifications.contains(clone))
 			{
 				no_progress = false;
-				executed = clone.tryExecute();
+				if(clone.tryExecute())
+				{
+					executed = true;
+					break;
+				}
+				
 				toAdd.add(clone);
 			}
 			

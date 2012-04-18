@@ -13,9 +13,16 @@ public class KeyPressOperation extends SimulationOperation {
 	public static final int ARROW_RIGHT = SWT.ARROW_RIGHT;
 	public static final int DEL = SWT.DEL;
 	public static final int TAB = SWT.TAB;
+	public static final int COMMAND = SWT.COMMAND;
+	public static final int CTRL = SWT.CTRL;
+	public static final int SHIFT = SWT.SHIFT;
 
-	
-	public KeyPressOperation(StyledText text) {
+
+
+	boolean hold    = true;
+	boolean release = true;
+
+	public KeyPressOperation(TextAdapter text) {
 		super(text);
 	}
 
@@ -26,10 +33,14 @@ public class KeyPressOperation extends SimulationOperation {
 		
 		Event e2 = new Event();
 		e2.keyCode = code;
+		
 
 
-		getText().notifyListeners(SWT.KeyDown,e);
-		getText().notifyListeners(SWT.KeyUp,e2);
+		if(hold)
+			getAdapter().getText().notifyListeners(SWT.KeyDown,e);
+		
+		if(release)
+			getAdapter().getText().notifyListeners(SWT.KeyUp,e2);
 	}
 	
 	public void setCode(int code)
@@ -37,5 +48,16 @@ public class KeyPressOperation extends SimulationOperation {
 		this.code = code;
 	}
 
+	
+	public void setHold()
+	{
+		hold = true;
+		release = false;
+	}
+	
+	public void setRelease(){
+		release = true;
+		hold = false;
+	}
 	
 }

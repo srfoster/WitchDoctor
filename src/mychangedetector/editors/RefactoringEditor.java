@@ -9,9 +9,11 @@ import java.util.List;
 import mychangedetector.builder.CompilerMessage;
 import mychangedetector.builder.SampleBuilder;
 import mychangedetector.builder.SuperResource;
+import mychangedetector.specifications.Executor;
+import mychangedetector.test.ExtractMethodDiffSimulator;
 import mychangedetector.test.MyScriptSimulator;
-import mychangedetector.test.ScriptSimulator;
 import mychangedetector.test.Simulator;
+import mychangedetector.test.TextAdapter;
 
 import org.eclipse.core.commands.operations.IOperationHistory;
 import org.eclipse.core.commands.operations.IOperationHistoryListener;
@@ -24,6 +26,7 @@ import org.eclipse.jdt.internal.ui.javaeditor.IJavaAnnotation;
 import org.eclipse.jdt.internal.ui.javaeditor.JavaAnnotationIterator;
 import org.eclipse.jdt.ui.PreferenceConstants;
 import org.eclipse.jdt.ui.text.IJavaPartitions;
+import org.eclipse.jdt.ui.text.JavaSourceViewerConfiguration;
 import org.eclipse.jdt.ui.text.JavaTextTools;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.preference.IPreferenceStore;
@@ -36,6 +39,7 @@ import org.eclipse.jface.text.source.IAnnotationModelExtension2;
 import org.eclipse.jface.text.source.IAnnotationModelListener;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.custom.VerifyKeyListener;
 import org.eclipse.swt.events.KeyEvent;
@@ -44,8 +48,10 @@ import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.VerifyEvent;
 import org.eclipse.swt.events.VerifyListener;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.FileEditorInput;
@@ -74,6 +80,10 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	
 	boolean refactoring_on = false;
 	
+	Thread sim_thread;
+	
+	long startTime;
+	
 	private Integer[] cancellationKeyCodes = {
 		SWT.ESC,
 		SWT.ARROW_DOWN,
@@ -82,6 +92,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		SWT.ARROW_RIGHT
 	};
 	
+	private boolean should_notify_simulator_of_refactoring;
 	
 	Simulator simulator = new MyScriptSimulator();
 	
@@ -107,6 +118,19 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		setSourceViewerConfiguration(new RefactoringSourceViewerConfiguration(textTools.getColorManager(), store, this, IJavaPartitions.JAVA_PARTITIONING));	
 	}
 	
+	@Override
+	protected JavaSourceViewerConfiguration createJavaSourceViewerConfiguration()
+	{
+		JavaTextTools textTools= JavaPlugin.getDefault().getJavaTextTools();
+
+		return new RefactoringSourceViewerConfiguration(textTools.getColorManager(), getPreferenceStore(), this, IJavaPartitions.JAVA_PARTITIONING);
+	}
+	
+	@Override
+	protected void installSemanticHighlighting()
+	{
+		
+	}
 
 	
 	public void createPartControl(Composite parent) {
@@ -114,6 +138,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 
 
 		try{
+			
 
 			builder.setUp(new SuperResource(currentDocument().get(), currentFile().getName()));
 			
@@ -128,7 +153,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 							
 							List<CompilerMessage> messages = getCompilerMessages(model);
 							
-							refactor(messages,RefactoringEditor.this);
+							//refactor(messages,RefactoringEditor.this);
 						
 						}
 						
@@ -233,6 +258,22 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	        	
 	        });
 	
+	        /*
+	        text.addLineStyleListener(new LineStyleListener(){
+				@Override
+				public void lineGetStyle(LineStyleEvent event) {
+					// TODO Auto-generated method stub
+					
+				}
+	        });
+	        */
+	        
+	        
+	        
+	        for(Listener l : text.getListeners(SWT.ALL))
+	        {
+	        	System.out.println(l);
+	        }
 	
 	        
 	
@@ -272,11 +313,13 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		return file;
 	}
 	
-	private IDocument currentDocument()
+	public IDocument currentDocument()
 	{
 		IDocumentProvider dp = ((CompilationUnitEditor) this)
 		.getDocumentProvider();
 		IDocument doc = dp.getDocument(this.getEditorInput());
+		
+		String text2 = doc.get();
 		
 		return doc;
 	}
@@ -298,8 +341,13 @@ public class RefactoringEditor extends CompilationUnitEditor {
 									SuperResource super_resource = new SuperResource(getText(), currentFile().getName());
 									super_resource.setCompilerMessages(messages);
 									
+									long checkingStarted = System.nanoTime();
 									builder.checkChanges(super_resource);
+									long estimatedTime   = System.nanoTime() - checkingStarted;
 									
+									if(simulator != null)
+										((ExtractMethodDiffSimulator)simulator).recordCheckingTime(estimatedTime);
+
 								}
 							});
 						}
@@ -318,21 +366,53 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		else
 			return null;
 	}
+	
+	public static int getScrollOffset(){
+		return styledText.getTopIndex();
+	}
+	
+	public static void setScrollOffset(int offset)
+	{
+		styledText.setTopIndex(offset);
+	}
 
 	
 	
-	public void grayRange(int start, int end)
+	public void grayRange(final int start, final int end)
 	{
 
 		Position position = new Position(start,end-start);
 		
 		getGrayRanges().add(position);
 		
+		final Display display = PlatformUI.getWorkbench().getDisplay();
+
+		/*
+		(new Thread(new Runnable(){
+			public void run(){
+				display.asyncExec(new Runnable(){
+					@Override
+					public void run() {
+						styledText.setStyleRange(new StyleRange(start,end-start, display.getSystemColor(SWT.COLOR_GRAY), display.getSystemColor(SWT.COLOR_WHITE)));
+					}
+				});
+			}
+		})).start();
+		*/
+		
+		display.asyncExec(new Runnable(){
+			@Override
+			public void run() {
+				styledText.setStyleRange(new StyleRange(start,end-start, display.getSystemColor(SWT.COLOR_GRAY), display.getSystemColor(SWT.COLOR_WHITE)));
+			}
+		});
+		
 		
 		try {
 			currentDocument().addPosition(position);
 			
 			IDocument doc = currentDocument();
+			
 			
 			damageDocument(start,end);
 		} catch (BadLocationException e) {
@@ -370,7 +450,9 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		
 		String text = doc.get();
 		
+		builder.setUp(new SuperResource(currentDocument().get(), currentFile().getName()));
 		builder.resetCheckpoints(text);
+
 	
 	}
 
@@ -444,7 +526,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		return false;
 	}
 	
-	private void damageDocument(int start, int end)
+	public void damageDocument(int start, int end)
 	{
 		IDocument doc = currentDocument();
 		
@@ -471,6 +553,7 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	
 	private List<CompilerMessage> getCompilerMessages(IAnnotationModel model)
 	{
+		
 		int offset = 0;
 		int length = currentDocument().get().length();
 		
@@ -527,6 +610,8 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		
 		builder.pause();
 		noDraw();
+		
+		startTime = System.nanoTime();
 	}
 	
 	public void unpause(){
@@ -537,6 +622,12 @@ public class RefactoringEditor extends CompilationUnitEditor {
 		
 		builder.unpause();
 		doDraw();
+		
+		long estimatedTime = System.nanoTime() - startTime;
+		
+
+		if(simulator != null)
+			((ExtractMethodDiffSimulator)simulator).recordRefactoringTime(estimatedTime);
 	}
 	
 	public void doDraw()
@@ -558,24 +649,52 @@ public class RefactoringEditor extends CompilationUnitEditor {
 	}
 	
 	
-	public void runSimulator()
+	public void runSimulator(Simulator sim)
 	{
+		should_notify_simulator_of_refactoring = false;
+
+		simulator = sim;
+
 		final Display display = PlatformUI.getWorkbench().getDisplay();
 
-		(new Thread(new Runnable(){
+
+
+
+		sim_thread = (new Thread(new Runnable(){
 			public void run()
 			{
-				simulator.init(styledText);
+				simulator.init(new TextAdapter(styledText,currentDocument()));
+				
+				display.asyncExec(new Runnable(){
 
+					@Override
+					public void run() {
+						reset();				
+					}
+				});
+				
+				System.out.println();
+				
 				while(simulator.hasNextTick())
 				{
 
 					display.asyncExec(new Runnable() {
+
 						public void run(){
-						
+							if(simulator.hasJustBegun())
+								simulator.begun();
+							
 							if(simulator != null)
 							{
-								simulator.tick();
+								if(should_notify_simulator_of_refactoring)
+								{
+									should_notify_simulator_of_refactoring = false;
+									((ExtractMethodDiffSimulator) simulator).checkForAutoCompletion();
+								} else {
+									simulator.tick();
+								}
+								
+								
 								synchronized(simulator){
 									simulator.notify();
 								}
@@ -594,13 +713,35 @@ public class RefactoringEditor extends CompilationUnitEditor {
 					simulator.sleep();
 					
 				}
-						
+				
+				simulator.finished();
 			}
-		})).start();
+		}));
+		
+		sim_thread.start();
 	}
 	
+
 	public void toggleRefactoringSupport()
 	{
 		refactoring_on = !refactoring_on;
 	}
+
+	public void setInputAsync(final FileEditorInput in, final Runnable andThen) {
+
+		final Display display = PlatformUI.getWorkbench().getDisplay();
+
+		display.asyncExec(new Runnable() {
+			public void run(){
+				RefactoringEditor.refactoringEditor.setInput(in);
+				andThen.run();
+			}
+		});
+	}
+
+	public void refactoringBegun(Executor executor) {
+		should_notify_simulator_of_refactoring = true;
+	}
+	
+
 }

@@ -111,28 +111,66 @@ public class ChangeMatcher implements Cloneable {
 		constraints.add(c);
 	}
 	
-	public Map<String,ASTNode> match(ChangeWrapper change)
+	/**
+	 * 
+	 * @param operation : The type operation to look for : "INSERT", "DELETE", or "UPDATE"
+	 * @param change    : The wrapper for the change operation.
+	 */
+	public void match(String operation, ChangeWrapper change)
 	{
-		String the_type = change.getChangeType();
-		if(!the_type.equals(change_type))
-			return new HashMap<String,ASTNode>();
-		
 		if(change.getChangeType().equals("UPDATE"))
 		{
-			return matchUpdate(change);
+			ASTNode before = change.getNode();
+			ASTNode after  = change.getUpdatedNode();
+			
+			if(before != null && after != null && before.toString().equals(after.toString()))
+				return;
+		}
+		
+		String the_type = change.getChangeType();
+//		if(!the_type.equals(change_type))
+//			return new HashMap<String,ASTNode>();
+		
+		if(operation == null || operation.equals("UPDATE"))
+		{
+			matchUpdate(change);
 		}
 		
 		
-		return matchInsertOrRemove(change);
+		matchInsertOrRemove(operation, change);
 	}
 
-	private Map<String, ASTNode> matchInsertOrRemove(ChangeWrapper change) {
-		ASTNode to_match_against = change.getNode();
+	
+	private void matchInsertOrRemove(String operation, ChangeWrapper change) {
 		
 		matching_before = true;
-		match(to_match_against, "BEFORE");
 		
-		return matcher.getProperties();
+		if(operation == null || operation.equals("DELETE"))
+		{
+			ASTNode to_match_against = change.getNode();
+			
+			if(change.getChangeType().equals("INSERT"))
+				to_match_against = null;
+
+			match(to_match_against, "BEFORE");
+		}
+		
+		matching_before = false;
+		
+		if(operation == null || operation.equals("INSERT"))
+		{
+			
+			ASTNode to_match_against = null;
+			
+			if(change.getChangeType().equals("UPDATE"))
+				to_match_against = change.getUpdatedNode();
+			if(change.getChangeType().equals("INSERT"))
+				to_match_against = null;
+			
+
+			match(to_match_against, "AFTER");
+		}
+		
 	}
 	
 	public void match(ASTNode node, String which_matcher)

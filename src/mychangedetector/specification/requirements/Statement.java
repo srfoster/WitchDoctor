@@ -17,7 +17,6 @@ import org.eclipse.jdt.core.dom.MethodDeclaration;
 public class Statement extends Requirement {
 
 	FreeVar statement_var;
-	String operation;
 		
 	public Statement(String operation, String free_var_name) {
 		this.operation = operation;

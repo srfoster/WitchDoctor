@@ -11,7 +11,6 @@ import org.eclipse.jdt.core.dom.ASTNode;
 
 public class MethCall extends Requirement {
 	FreeVar call;
-	String operation;
 	
 	public MethCall(String operation, String call_name)
 	{
@@ -26,14 +25,7 @@ public class MethCall extends Requirement {
 
 	}
 
-	
-	private ASTNodeDescriptor simpleMatcher(){
-		ASTNodeDescriptor descriptor = new ASTNodeDescriptor();
-		descriptor.setClassName("org.eclipse.jdt.core.dom.MethodInvocation");
-		descriptor.setBindingName(call.name());
-		
-		return descriptor;
-	}
+
 
 	@Override
 	public ChangeMatcher buildChangeMatcher()
@@ -41,8 +33,20 @@ public class MethCall extends Requirement {
 		ChangeMatcher change_event = new ChangeMatcher();
 		
 		change_event.setChangeType(operation);
-		change_event.setBeforeNodeMatcher(simpleMatcher());
-		change_event.setAfterNodeMatcher(simpleMatcher());
+		
+		ASTNodeDescriptor call_descriptor = new ASTNodeDescriptor();
+		call_descriptor.setClassName("org.eclipse.jdt.core.dom.MethodInvocation");
+		call_descriptor.setBindingName(call.name());
+		
+		change_event.setAfterNodeMatcher(call_descriptor);
+		
+		if(operation == "UPDATE")
+		{
+			ASTNodeDescriptor statement_descriptor = new ASTNodeDescriptor();
+			statement_descriptor.setClassName("org.eclipse.jdt.core.dom.Statement");
+			statement_descriptor.setBindingName("replaced_statement");
+			change_event.setBeforeNodeMatcher(statement_descriptor);
+		}
 
 
 		return change_event;

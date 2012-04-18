@@ -8,7 +8,7 @@ import org.eclipse.swt.custom.StyledText;
 public class OffsetQuery extends JumpQuery {
 	int offset;
 
-	public OffsetQuery(StyledText text) {
+	public OffsetQuery(TextAdapter text) {
 		super(text);
 		// TODO Auto-generated constructor stub
 	}

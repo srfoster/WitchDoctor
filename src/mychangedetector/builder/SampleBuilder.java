@@ -133,7 +133,7 @@ public class SampleBuilder {
 	
 	
 	public void setUp(SuperResource superResource) {
-		//originals.put(superResource.getName(),superResource);
+		right = superResource;
 	}
 
 	/*

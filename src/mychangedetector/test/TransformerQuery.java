@@ -9,7 +9,7 @@ public class TransformerQuery extends JumpQuery {
 	JumpQuery query;
 	
 	public TransformerQuery(JumpQuery query) {
-		super(query.getText());
+		super(query.getAdapter());
 		this.query = query;
 	}
 

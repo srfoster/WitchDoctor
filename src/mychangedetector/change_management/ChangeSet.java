@@ -175,15 +175,20 @@ public class ChangeSet implements Set {
 	        		file = after.getContents();
 	        	}
         		
+	        	System.out.println(change.toString());
+	        	
+        		//Keeps throwing errors when the changes are near the end of hte file.
+        		//  Need to move the relevant functionality into change.toString();
+        		/*
         		DiffRange range = entity.getSourceRange();
         		int offset = range.getOffset();
         		int length = range.getLength();
         		int start = offset; 
         		int end   = length + offset;
         		
-        		if(end > file.length())
+        		if(end >= file.length())
         		{
-        			end = file.length();
+        			end = file.length() - 1;
         		}
         		
         		String value = file.substring(start, end);
@@ -194,8 +199,7 @@ public class ChangeSet implements Set {
         		
         		ASTNode node = parser.createAST(null);
         		
-        		
-        		
+
         		String[] class_name_array = change.getClass().getName().split("\\.");
         		String short_name = class_name_array[class_name_array.length - 1];
         		
@@ -212,6 +216,7 @@ public class ChangeSet implements Set {
 	            
 	            System.out.println("   AST:");
 	            System.out.println(visitor.getMessage());
+	            */
         	}
 		}
 	}

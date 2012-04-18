@@ -1,30 +1,29 @@
 package mychangedetector.specifications;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import mychangedetector.builder.SuperResource;
+import mychangedetector.ast_helpers.ASTNodeDescriptor;
 import mychangedetector.editors.RefactoringEditor;
+import mychangedetector.matching.MatchingASTVisitor;
+import mychangedetector.matching.MyASTMatcher;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTMatcher;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.ImportDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import org.eclipse.jdt.core.dom.rewrite.ITrackedNodePosition;
-import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 import org.eclipse.jdt.internal.corext.refactoring.code.ExtractMethodRefactoring;
 import org.eclipse.jdt.internal.ui.javaeditor.EditorUtility;
 import org.eclipse.jdt.internal.ui.javaeditor.JavaEditor;
 import org.eclipse.jface.text.BadLocationException;
-import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.Position;
 import org.eclipse.jface.text.TextSelection;
 import org.eclipse.ltk.core.refactoring.Change;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
@@ -35,7 +34,11 @@ import org.eclipse.ui.IEditorPart;
 
 public class EclipseExtractMethodExecutor extends Executor {
 
+	private List<ASTNode> replacement_nodes;
+	
 	private boolean already_executed = false;
+	
+	Position replacement_position = null;
 	
 	public EclipseExtractMethodExecutor(ExtractMethodSpecificationAdapter extractMethodSpecificationAdapter) {
 		this.specification = extractMethodSpecificationAdapter;
@@ -46,7 +49,7 @@ public class EclipseExtractMethodExecutor extends Executor {
 		if(already_executed)
 			return false;
 		
-		FreeVar statement_var = getSpecification().getProperty("hook_statement");
+		FreeVar statement_var = getSpecification().getProperty("removed_statement_1");
 		if(statement_var == null)
 			return false;
 		ASTNode statement     = statement_var.binding();
@@ -63,19 +66,64 @@ public class EclipseExtractMethodExecutor extends Executor {
 	protected void rollback(final IEditorPart editor,
 			final IDocument document) {
 		
-		
+		String text = document.get();
 		List<ASTNode> removed_statements = ((ExtractMethodSpecificationAdapter)getSpecification()).getRemovedStatements();
 	
 		MethodInvocation invocation = ((ExtractMethodSpecificationAdapter)getSpecification()).getMethodInvocation();
 		
+		final ASTNode invocation_statement = invocation.getParent();
+		
+
+		
+	
 		ASTParser parser = ASTParser.newParser(AST.JLS3);
 		parser.setSource(document.get().toCharArray());
-		AST ast = invocation.getAST();
+		ASTNode tree = parser.createAST(null);
+
+		MyASTMatcher matcher = new MyASTMatcher();
+		ASTNodeDescriptor descriptor = new ASTNodeDescriptor(){
+			@Override
+			public boolean describes(ASTNode node)
+			{
+				boolean ret = node.subtreeMatch(new ASTMatcher(), invocation_statement);
+				
+				return ret;
+			}
+		};
+		descriptor.setBindingName("invocation_statement");
+		tree.accept(new MatchingASTVisitor(matcher, descriptor));
+		
+		ASTNode invocation_statement_current = matcher.getProperty("invocation_statement");
+		
+		
+    	replacement_position = new Position(invocation_statement_current.getStartPosition()-1,invocation_statement_current.getLength()+2);
+    	
+    	try {
+			document.addPosition(replacement_position);
+		} catch (BadLocationException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		
+		AST ast = invocation_statement_current.getAST();
 		ASTRewrite rewriter = ASTRewrite.create(ast);
 
-		ASTNode statements = rewriter.createGroupNode(removed_statements.toArray(new ASTNode[]{}));
-		rewriter.replace(invocation.getParent(), statements, null);
+		replacement_nodes = new ArrayList<ASTNode>();
+		
+		for(ASTNode n : removed_statements)
+		{
+			String node_string = n.toString().replace("\n","");
+			replacement_nodes.add(rewriter.createStringPlaceholder(node_string,n.getNodeType()));
+		}
+		
+		ASTNode statements = rewriter.createGroupNode(replacement_nodes.toArray(new ASTNode[]{}));
+		
+		rewriter.replace(invocation_statement_current, statements, null);;
 		 
+		
+		String to_extract = text.substring(replacement_position.getOffset(), replacement_position.getOffset()+ replacement_position.getLength());
+		
 		 TextEdit edits = rewriter.rewriteAST(document, null);
 		 UndoEdit undo = null;
 		 try {
@@ -86,54 +134,68 @@ public class EclipseExtractMethodExecutor extends Executor {
 		     e.printStackTrace();
 		 }
 
+		replacement_position.setOffset(replacement_position.getOffset()+1);
+		replacement_position.setLength(replacement_position.getLength()-2);
+
+
 		 
 		 
 	}
 
 	@Override
 	public void afterRollback(final IEditorPart editor, final IDocument doc) {
-		
-		String class_name = getSpecification().getCheckpointName();
-  
-    	ICompilationUnit i = (ICompilationUnit) EditorUtility.getEditorInputJavaElement(editor, true);
+		String text = doc.get();
+		  
     	
     	String method_name = ((ExtractMethodSpecificationAdapter)getSpecification()).getMethodName();
-    	    	
-    	FreeVar first_statement_var = ((ExtractMethodSpecificationAdapter)getSpecification()).getProperty("removed_statement_0");
-    	ASTNode first_statement = first_statement_var.binding();
-    	int start_position = first_statement.getStartPosition();
-    	
-    	FreeVar last_statement_var = first_statement_var;
-    	ASTNode last_statement = null;
-    	int end_position = 0;
-    	int count = 1;
-    	
-    	while(last_statement_var != null)
-    	{
-    		last_statement = last_statement_var.binding();
-    		
-    		end_position = last_statement.getStartPosition() + last_statement.getLength();
-    		
-        	last_statement_var = ((ExtractMethodSpecificationAdapter)getSpecification()).getProperty("removed_statement_"+count++);
-    	}
-    	
-    	
-    	ASTNode call = getSpecification().getProperty("method_name").binding();
-    	
-    	int length = end_position - start_position;
-    	
-		TextSelection new_selection = new TextSelection(doc,start_position,length);
-		
-		((JavaEditor) editor).getSelectionProvider().setSelection(new_selection);
-    	
 
-    	ExtractMethodRefactoring refactoring = new ExtractMethodRefactoring(i, start_position, length);
+    	int length = replacement_position.getLength();
+    	int start_position = replacement_position.getOffset();
     	
-    	refactoring.setMethodName(method_name);
+    	String selected_text = text.substring(start_position,start_position + length);
+    	System.out.println("Start: " + start_position + " Length: " + length);
+    	System.out.println(selected_text);
+
+	//	TextSelection new_selection = new TextSelection(doc,start_position,length);
+		
+	//	((JavaEditor) editor).getSelectionProvider().setSelection(new_selection);
+
+    	ICompilationUnit i = (ICompilationUnit) EditorUtility.getEditorInputJavaElement(editor, true);
+
+    	ExtractMethodRefactoring refactoring = null;
+
+    	RefactoringStatus status = null;
     	
+		int count = 0;
+
+		try {
+			//Using the simulator, for some reason, results in a bad status sometimes (usually when it's running fast.)
+			// So I can only assume that there's a nasty concurrency bug causing non-deterministic behaviour.  I
+			// don't know if it's my bug or Eclipse's.  I'm just going to spin-wait for now.
+			while(status == null || !status.isOK())
+			{
+		    	refactoring = new ExtractMethodRefactoring(i, start_position, length);
+		    	refactoring.setMethodName(method_name);
+				status = refactoring.checkInitialConditions(new NullProgressMonitor());
+				count++;
+				
+				try {
+					Thread.sleep(50);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				if(count == 100)
+					break;
+			}
+		} catch (CoreException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		System.out.println("Tried " + count + " times");
+		System.out.println(status.toString());
+    		
     	try {
-    		RefactoringStatus status = refactoring.checkInitialConditions(new NullProgressMonitor());
-    		System.out.println(status.toString());
 			Change change = refactoring.createChange(new NullProgressMonitor());
 			
 
@@ -155,6 +217,9 @@ public class EclipseExtractMethodExecutor extends Executor {
 
 				@Override
 				public void done() {
+					TextSelection new_selection = new TextSelection(doc,0,0);
+					
+					((JavaEditor) editor).getSelectionProvider().setSelection(new_selection);
 					doDiff(RefactoringEditor.getText());
 					resetCheckpoints(doc);
 				}

@@ -7,7 +7,11 @@ import org.eclipse.swt.widgets.Event;
 public class CharacterOperation extends SimulationOperation {
 	private char character;
 	
-	public CharacterOperation(StyledText text)
+	int mask = -1;
+
+	
+	
+	public CharacterOperation(TextAdapter text)
 	{
 		super(text);
 	}
@@ -22,12 +26,27 @@ public class CharacterOperation extends SimulationOperation {
 	{
 		Event e = new Event();
 		e.character = character;
+		e.keyCode = character;
 		
 		Event e2 = new Event();
 		e2.character = character;
+		e2.keyCode = character;
 
-		getText().notifyListeners(SWT.KeyDown,e);
-		getText().notifyListeners(SWT.KeyUp,e2);
+		
+		if(mask != -1)
+		{
+			e.stateMask |= mask;
+			e2.stateMask |= mask;
+		}
 
+		getAdapter().getText().notifyListeners(SWT.KeyDown,e);
+		getAdapter().getText().notifyListeners(SWT.KeyUp,e2);
+
+	}
+	
+	
+	public void setMask(int mask)
+	{
+		this.mask = mask;
 	}
 }
