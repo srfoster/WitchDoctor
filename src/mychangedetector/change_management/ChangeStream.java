@@ -8,8 +8,6 @@ import mychangedetector.differencer.Diff;
 import mychangedetector.specifications.Specification;
 import mychangedetector.specifications.SpecificationForest;
 
-import org.evolizer.changedistiller.model.entities.SourceCodeChange;
-
 public class ChangeStream {
 	
 	List<ChangeSet> list = new ArrayList<ChangeSet>();
@@ -41,17 +39,7 @@ public class ChangeStream {
 		spec_forest.reset();
 	}
 	
-	public Object[] toArray()
-	{
-		ArrayList<SourceCodeChange> ret = new ArrayList<SourceCodeChange>();
-		
-		for(ChangeSet set : list)
-		{
-			ret.addAll(set);
-		}
-		
-		return ret.toArray();
-	}
+
 	
 	public void addSet(List<Diff> new_changes, FileVersion before, FileVersion after){
 		if(new_changes.size() == 0) return;
