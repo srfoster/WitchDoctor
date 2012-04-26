@@ -69,4 +69,5 @@ Import-Package: org.eclipse.compare,
  org.eclipse.ui.texteditor.link
 Bundle-ClassPath: lib/diffutils-1.2.1.jar,
  .,
- lib/sqlitejdbc-v056.jar
+ lib/sqlitejdbc-v056.jar,
+ lib/simmetrics_jar_v1_6_2_d07_02_07.jar

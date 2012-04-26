@@ -28,8 +28,8 @@ public class ChangeStream {
 	public ChangeStream()
 	{
 		spec_forest.addSpecification(rename_detector);
-		spec_forest.addSpecification(extract_detector);
 		spec_forest.addSpecification(extract_variable_detector);
+		spec_forest.addSpecification(extract_detector);
 		spec_forest.addSpecification(try_catch);
 	}
 	
@@ -90,18 +90,8 @@ public class ChangeStream {
 		System.out.println("Detections...");
 
 		spec_forest.print();
-		
-		
-
 
 	}
-	
-	
-	
-	
 
-	
-	
-	
 	
 }

@@ -24,6 +24,11 @@ public class SimpleTextDiffEntity implements DiffEntity {
 		this.original = original;
 		this.delimiter = delimiter;
 	}
+	
+	@Override
+	public String toString(){
+		return chunk.getLines().get(0).toString();
+	}
 
 	@Override
 	public DiffRange getSourceRange() {

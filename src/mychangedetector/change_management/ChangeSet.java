@@ -25,7 +25,11 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.NodeFinder;
+
+import uk.ac.shef.wit.simmetrics.similaritymetrics.CosineSimilarity;
+import uk.ac.shef.wit.simmetrics.similaritymetrics.EuclideanDistance;
+import uk.ac.shef.wit.simmetrics.similaritymetrics.Levenshtein;
+import uk.ac.shef.wit.simmetrics.similaritymetrics.MongeElkan;
 
 
 public class ChangeSet implements Set {
@@ -64,12 +68,33 @@ public class ChangeSet implements Set {
 			ChangeWrapper wrapper = new ChangeWrapper(change,full_tree_before, full_tree_after);
 			
 			ASTNode main_node = getASTNode(change);
-			wrapper.setNode(main_node);
+			DiffEntity o = change.getChangedEntity();
 			
-			if(change.isUpdate())
+			if(main_node != null && o != null)
 			{
-				ASTNode updated = getUpdatedASTNode(change);
-				wrapper.setUpdatedNode(updated);
+				String before_node_string = main_node.toString().replaceAll("\\s", "");
+				String before_diff_string = o.toString().replaceAll("\\s", "");
+				
+	            float sim = (new Levenshtein()).getSimilarity(before_node_string, before_diff_string);
+	
+	            if(sim > .7f)
+	            	wrapper.setNode(main_node);
+			}
+				
+			DiffEntity r = change.getNewEntity();
+			ASTNode updated = getUpdatedASTNode(change);
+	
+			if(updated != null && r != null)
+			{
+				String after_node_string = updated.toString().replaceAll("\\s", "");
+				String after_diff_string = r.toString().replaceAll("\\s", "");
+			
+	            float sim = (new Levenshtein()).getSimilarity(after_node_string, after_diff_string);
+		
+				if(change.isUpdate() && sim > 0.7f)
+				{
+					wrapper.setUpdatedNode(updated);
+				}
 			}
 									
 			wrappers.add(wrapper);
